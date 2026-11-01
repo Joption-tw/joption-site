@@ -32,7 +32,7 @@ order: 80
 </div>
 <div markdown="1">
 
-![時間價值示意圖：距到期 5 天剩 650 點，到期歸零，大盤不動時賣方賺到 650 點](/images/雙賣平衡下單機/time-value.svg)
+![動畫：大盤不動時，時間價值從 650 點一天天掉到 0，賣方賺到 650 點](/images/雙賣平衡下單機/time-value.svg)
 
 </div>
 </div>
@@ -51,7 +51,7 @@ order: 80
 </div>
 <div markdown="1">
 
-![長條圖：大盤連漲五天不調整，賣方損益從 0 變成賠 750 點](/images/雙賣平衡下單機/no-balance.svg)
+![動畫：大盤連漲五天不調整，賣方損益從 0 變成賠 750 點](/images/雙賣平衡下單機/rally.svg)
 
 </div>
 </div>
@@ -76,7 +76,7 @@ order: 80
 </div>
 <div markdown="1">
 
-![蹺蹺板示意：行情下跌後 Put 變重，比值 34.9%，回補 5 口 Put 加賣 10 口 Call 後回到 51.7%](/images/雙賣平衡下單機/seesaw.svg)
+![動畫：蹺蹺板在行情下跌後 Put 變重，比值 34.9%，回補 5 口 Put 加賣 10 口 Call 後回到 51.7%](/images/雙賣平衡下單機/seesaw.svg)
 
 </div>
 </div>
@@ -98,7 +98,7 @@ order: 80
 </div>
 <div markdown="1">
 
-![示意圖：部位跟著大盤移動，大盤從 45000 來回到 46400，時間價值累計 650 點](/images/雙賣平衡下單機/dance.svg)
+![動畫：部位跟著大盤移動，大盤從 45000 來回到 46400，時間價值累計 650 點](/images/雙賣平衡下單機/dance.svg)
 
 </div>
 </div>
