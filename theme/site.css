@@ -127,7 +127,13 @@ main { min-width: 0; width: 100%; max-width: 900px; padding: 32px 40px 56px; }
 .prose a:hover img { transform: translate(-2px, -2px); box-shadow: var(--pop-big); }
 .prose table { width: 100%; margin: 0 0 18px; border-collapse: collapse; font-size: 16px; display: block; overflow-x: auto; }
 .prose th, .prose td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
-.prose th { background: var(--kraft); }
+.prose th { background: var(--coin); border-color: var(--ink); font-weight: 900; white-space: nowrap; }
+.prose td { overflow-wrap: normal; } /* 2.79% 這種數字不要斷行，太寬就在表格內左右滑 */
+.prose td:first-child { font-weight: 700; }
+.prose table { font-variant-numeric: tabular-nums; }
+.prose blockquote { margin: 16px 0; padding: 10px 16px; border: 2px solid var(--ink); border-radius: var(--radius, 10px); background: var(--sky); font-size: 15.5px; }
+.prose blockquote p { margin: 0; }
+.prose code { padding: 1px 6px; border-radius: 6px; background: var(--kraft); font-size: .92em; }
 .hl { color: var(--call); }
 
 .cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 20px; margin-bottom: 8px; align-items: start; }
@@ -268,6 +274,7 @@ iframe.embed { height: 1157px; }
 @media (max-width: 640px) {
   body { font-size: 16.5px; }
   .cols { grid-auto-flow: row; }
+  .prose th, .prose td { padding: 6px 5px; font-size: 13px; }
   .hero-inner { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; gap: 14px; padding: 24px 16px 84px; }
   .hero-kicker { font-size: 16px; }
   .hero-slogan { font-size: 17px; }

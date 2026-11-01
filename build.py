@@ -112,7 +112,8 @@ def render_nav(items, current, depth=0):
         kids = [k for k in n["children"] if not k["hidden"]]
         link = page_link(n)
         active = current == n["url"]
-        inside = current.startswith(n["url"])
+        # 只是分類、沒有自己頁面的群組（例如「選單」）預設展開
+        inside = current.startswith(n["url"]) or not link
         label = (f'<a href="{esc(link)}"{" aria-current=page" if active else ""}>{esc(n["title"])}</a>'
                  if link else f'<span>{esc(n["title"])}</span>')
         if kids:
