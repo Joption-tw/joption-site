@@ -1,6 +1,6 @@
 ---
 title: CALL點數控管
-order: 220
+order: 230
 ---
 
 <a id="h.kqpao1rnf73l"></a>

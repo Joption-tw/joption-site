@@ -1,6 +1,6 @@
 ---
 title: 快速生成 Log 檔步驟
-order: 530
+order: 410
 summary: 遇到問題時，快速生成診斷日誌的步驟。
 ---
 

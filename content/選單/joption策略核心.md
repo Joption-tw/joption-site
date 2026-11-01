@@ -1,6 +1,6 @@
 ---
 title: Joption策略核心
-order: 350
+order: 90
 ---
 
 **Joption=雙賣策略+平衡策略**

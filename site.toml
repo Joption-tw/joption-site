@@ -27,18 +27,13 @@ icon = "seesaw"
 
 [[home_cards]]
 title = "操作手冊"
-url = "/選單/全策略說明/"
+url = "/選單/介面說明/"
 icon = "book"
 
 [[home_cards]]
 title = "設備要求"
 url = "/選單/硬體設備建議/"
 icon = "monitor"
-
-[[home_cards]]
-title = "當沖策略參數介紹"
-url = "/選單/參數設定介紹與建議/"
-icon = "sliders"
 
 [[home_cards]]
 title = "當沖策略說明"

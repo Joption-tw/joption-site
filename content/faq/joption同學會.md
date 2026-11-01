@@ -1,6 +1,6 @@
 ---
 title: Joption同學會
-order: 520
+order: 400
 summary: 加入社群，與其他交易者交流心得。
 ---
 
