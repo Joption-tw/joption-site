@@ -1,8 +1,7 @@
 ---
 title: Joption是什麼
 summary: 安裝在自己電腦上的選擇權自動下單程式。
-menu: Joption下單機
-order: 220
+order: 390
 ---
 
 **Joption 是一套安裝在您自己電腦上的選擇權自動下單程式，直接連線期貨商伺服器，即時監控部位。**

@@ -1,8 +1,7 @@
 ---
-title: 策略口訣與策略核心
+title: Joption策略核心
 summary: 中性雙賣：Call 與 Put 永遠一樣重。
-menu: 雙賣平衡核心策略
-order: 80
+order: 320
 ---
 
 **Joption = 雙賣策略 + 平衡策略**

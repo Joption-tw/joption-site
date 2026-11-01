@@ -423,7 +423,7 @@ def build(base=None, preview=False):
         content = render_md(p["body"], used, variants)
         node = next((n for n in order if n["url"] == p["url"]), None)
         extra = ""
-        kids = sorted((q for q in pages if q["parts"][:-1] == p["parts"] and q["parts"] and not q["hidden"] and not q["redirect"]),
+        kids = sorted((q for q in pages if q["nav"][:-1] == p["nav"] and q["parts"] and not q["hidden"] and not q["redirect"]),
                       key=lambda q: (q["order"], q["title"]))
         if kids and p["layout"] != "home":
             extra = '<section class="children"><h2>本單元內容</h2><div class="cards">' + "".join(

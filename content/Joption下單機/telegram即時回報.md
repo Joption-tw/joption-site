@@ -1,7 +1,8 @@
 ---
 title: Telegram 的即時回報
 summary: 人不在電腦前，部位狀況照樣掌握。
-order: 290
+order: 440
+menu: 選單/joption是什麼
 ---
 
 **電腦自動交易，手機隨時看最新部位。**

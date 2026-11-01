@@ -1,8 +1,7 @@
 ---
 title: Joption同學會
 summary: 大家的即時績效一起看、一起學。
-menu: Joption下單機
-order: 310
+order: 700
 ---
 
 **損益共享計畫：大家的即時績效一起看、一起學。**
