@@ -76,7 +76,7 @@ img { max-width: 100%; height: auto; }
 
 /* 版面 */
 .layout { display: grid; grid-template-columns: var(--side) minmax(0, 1fr); align-items: start; }
-main { min-width: 0; width: 100%; max-width: 1800px; margin: 0 auto; padding: 32px 40px 56px; }
+main { min-width: 0; width: 100%; max-width: 1280px; margin: 0 auto; padding: 32px 40px 56px; }
 
 /* 側邊選單 */
 .sidebar {
