@@ -208,13 +208,27 @@ def build_variants(tmp):
     return out
 
 
+def wrap_table(m):
+    """大部分是數字的表格置中對齊；最後一欄是合計時另外標出來。"""
+    html, cls = m.group(0), "table-wrap"
+    plain = lambda cell: re.sub(r"<[^>]+>", "", cell).strip()
+    cells = [plain(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", html, re.S)]
+    numbers = [c for c in cells if re.fullmatch(r"[-−+]?[\d,.]+%?|—|", c)]
+    if cells and len(numbers) / len(cells) > 0.6:
+        cls += " nums"
+    heads = re.findall(r"<th[^>]*>(.*?)</th>", html, re.S)
+    if " nums" in cls and heads and plain(heads[-1]) in ("全年", "合計", "月合計", "總計"):
+        cls += " total"
+    return f'<div class="{cls}">{html}</div>'
+
+
 def render_md(body, used, variants):
     body = re.sub(r"^\[\[(youtube|tool|embed|report):(.+?)\]\]\s*$", macro, body, flags=re.M)
     body = re.sub(r"(?<![=\\])==(?=\S)(.+?)(?<=\S)==(?!=)", r'<span class="hl">\1</span>', body)
     md = markdown.Markdown(extensions=["extra", "sane_lists", "nl2br"])
     out = md.convert(body)
     # 外面多包一層負責左右滑，表格本身才能撐滿版面寬度
-    out = out.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
+    out = re.sub(r"<table>.*?</table>", wrap_table, out, flags=re.S)
 
     def img(m):
         size, tag, src = "", m.group(0), m.group(1)

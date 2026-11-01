@@ -126,13 +126,22 @@ main { min-width: 0; width: 100%; max-width: 1280px; margin: 0 auto; padding: 32
 .prose img.wide, .prose img.fig { width: 100%; } /* 投影片這類橫向大圖跟著版面撐滿；小截圖維持原尺寸 */
 .prose a img { cursor: pointer; box-shadow: var(--pop); transition: transform .12s, box-shadow .12s; }
 .prose a:hover img { transform: translate(-2px, -2px); box-shadow: var(--pop-big); }
-.table-wrap { margin: 0 0 18px; overflow-x: auto; }
-.prose table { width: 100%; border-collapse: collapse; font-size: 16px; }
-.prose th, .prose td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
-.prose th { background: var(--coin); border-color: var(--ink); font-weight: 900; white-space: nowrap; }
-.prose td { overflow-wrap: normal; } /* 2.79% 這種數字不要斷行，太寬就在表格內左右滑 */
+/* 表格：貼紙外框 + 金幣表頭，橫線分列；寬表在框內左右滑，第一欄固定 */
+.table-wrap { margin: 4px 4px 22px 0; overflow-x: auto; border: var(--edge); border-radius: 12px; background: #fff; box-shadow: var(--pop); }
+.prose table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 16px; font-variant-numeric: tabular-nums; }
+.prose th, .prose td { padding: 11px 14px; text-align: left; }
+.prose th { background: var(--coin); border-bottom: 2.5px solid var(--ink); font-weight: 900; white-space: nowrap; }
+.prose td { background: #fff; border-bottom: 1px solid var(--line); overflow-wrap: normal; } /* 2.79% 這種數字不要斷行，太寬就在表格內左右滑 */
+.prose tbody tr:nth-child(even) td { background: var(--paper); }
+.prose tbody tr:last-child td { border-bottom: 0; }
+.prose tbody tr:hover td { background: var(--sky); }
 .prose td:first-child { font-weight: 700; }
-.prose table { font-variant-numeric: tabular-nums; }
+.prose td:nth-child(2) strong { color: var(--indigo); white-space: nowrap; }
+/* 數字表：置中對齊，第一欄跟著固定，合計欄用天藍標出 */
+.nums th, .nums td { text-align: center; white-space: nowrap; }
+.nums th:first-child, .nums td:first-child { position: sticky; left: 0; z-index: 1; border-right: 2.5px solid var(--ink); }
+.total th:last-child { background: var(--indigo); color: #fff; }
+.prose .total td:last-child, .prose .total tbody tr:nth-child(even) td:last-child { background: var(--sky); font-weight: 900; }
 .prose blockquote { margin: 16px 0; padding: 10px 16px; border: 2px solid var(--ink); border-radius: var(--radius, 10px); background: var(--sky); font-size: 15.5px; }
 .prose blockquote p { margin: 0; }
 .prose code { padding: 1px 6px; border-radius: 6px; background: var(--kraft); font-size: .92em; }
@@ -301,7 +310,7 @@ iframe.embed { height: 1157px; }
   .cards.trio { grid-template-columns: minmax(0, 1fr); }
   .cards.points, .cards.points.four { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .lead { font-size: 21px; }
-  .prose th, .prose td { padding: 6px 5px; font-size: 13px; }
+  .prose th, .prose td { padding: 8px 8px; font-size: 14px; }
   .hero-inner { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; gap: 14px; padding: 24px 16px 84px; }
   .hero-kicker { font-size: 16px; }
   .hero-slogan { font-size: 17px; }
