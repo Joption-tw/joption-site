@@ -176,7 +176,7 @@ iframe.embed { height: 1157px; }
 .hero { position: relative; overflow: hidden; background: var(--hatch), var(--sky); }
 .hero-inner {
   position: relative; z-index: 1;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); align-items: center; gap: 24px;
+  display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, 460px); align-items: center; gap: 24px;
   max-width: 1080px; margin: 0 auto; padding: 36px 32px 96px;
 }
 .hero-kicker { margin: 0 0 8px; font-size: 19px; font-weight: 700; color: var(--indigo-deep); letter-spacing: .06em; }

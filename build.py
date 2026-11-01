@@ -293,6 +293,11 @@ def build(base=None):
     if base is None:
         base = parsed.path
     template = open(os.path.join(THEME, "page.html"), encoding="utf-8").read()
+    # 樣式改了版本號就變，訪客才不會一直看到瀏覽器存著的舊版
+    digest = hashlib.sha1()
+    for name in ("site.css", "site.js"):
+        digest.update(open(os.path.join(THEME, name), "rb").read())
+    template = template.replace("{{ver}}", digest.hexdigest()[:8])
     pages = collect_pages()
     by_url = {p["url"]: p for p in pages}
     tree = build_tree(pages)
