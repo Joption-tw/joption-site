@@ -213,6 +213,8 @@ def render_md(body, used, variants):
     body = re.sub(r"(?<![=\\])==(?=\S)(.+?)(?<=\S)==(?!=)", r'<span class="hl">\1</span>', body)
     md = markdown.Markdown(extensions=["extra", "sane_lists", "nl2br"])
     out = md.convert(body)
+    # 外面多包一層負責左右滑，表格本身才能撐滿版面寬度
+    out = out.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
 
     def img(m):
         size, tag, src = "", m.group(0), m.group(1)
@@ -222,6 +224,8 @@ def render_md(body, used, variants):
             if os.path.exists(path):  # 先留好圖片的位置，載入時版面才不會跳動
                 with Image.open(path) as im:
                     size = f'width="{im.width}" height="{im.height}" '
+                    if im.width >= 1100 and im.width >= im.height * 1.2:
+                        size += 'class="wide" '
             if src in variants:
                 # sizes 故意寫小一點：高解析手機才不會每張都抓電腦版大圖
                 srcset = ", ".join(f'{u.replace(" ", "%20")} {w}w' for u, w in variants[src])

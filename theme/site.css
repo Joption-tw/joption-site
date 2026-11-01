@@ -76,7 +76,7 @@ img { max-width: 100%; height: auto; }
 
 /* 版面 */
 .layout { display: grid; grid-template-columns: var(--side) minmax(0, 1fr); align-items: start; }
-main { min-width: 0; width: 100%; max-width: 900px; padding: 32px 40px 56px; }
+main { min-width: 0; width: 100%; max-width: 1800px; margin: 0 auto; padding: 32px 40px 56px; }
 
 /* 側邊選單 */
 .sidebar {
@@ -123,9 +123,11 @@ main { min-width: 0; width: 100%; max-width: 900px; padding: 32px 40px 56px; }
 .prose li::marker { color: var(--indigo); font-weight: 700; }
 .prose hr { margin: 32px 0; border: 0; border-top: 2px dashed var(--line); }
 .prose img { display: block; margin: 12px 0 20px; border: 2px solid var(--ink); border-radius: 10px; cursor: zoom-in; background: #fff; }
+.prose img.wide { width: 100%; } /* 投影片這類橫向大圖跟著版面撐滿；小截圖維持原尺寸 */
 .prose a img { cursor: pointer; box-shadow: var(--pop); transition: transform .12s, box-shadow .12s; }
 .prose a:hover img { transform: translate(-2px, -2px); box-shadow: var(--pop-big); }
-.prose table { width: 100%; margin: 0 0 18px; border-collapse: collapse; font-size: 16px; display: block; overflow-x: auto; }
+.table-wrap { margin: 0 0 18px; overflow-x: auto; }
+.prose table { width: 100%; border-collapse: collapse; font-size: 16px; }
 .prose th, .prose td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
 .prose th { background: var(--coin); border-color: var(--ink); font-weight: 900; white-space: nowrap; }
 .prose td { overflow-wrap: normal; } /* 2.79% 這種數字不要斷行，太寬就在表格內左右滑 */

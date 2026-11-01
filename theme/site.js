@@ -57,12 +57,12 @@
   document.querySelectorAll('.report-box').forEach(function (box) {
     var frame = box.querySelector('iframe');
     var h = Math.min(screen.width, screen.height) < 600 ? 1800 : 1000; // 手機上兩頁排成一整頁，比較高
-    frame.style.width = '1040px';
     frame.style.height = h + 'px';
     function fit() {
-      var w = box.clientWidth;
-      frame.style.transform = 'scale(' + w / 1040 + ')';
-      box.style.height = h * w / 1040 + 'px';
+      var w = box.clientWidth, scale = Math.min(w / 1040, 1); // 框夠寬就照原尺寸，不放大
+      frame.style.width = w / scale + 'px';
+      frame.style.transform = 'scale(' + scale + ')';
+      box.style.height = h * scale + 'px';
     }
     fit();
     window.addEventListener('resize', fit);
