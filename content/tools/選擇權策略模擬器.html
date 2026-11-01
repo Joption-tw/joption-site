@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>選擇權策略模擬器 - Google 協作平台版</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 React 核心庫 -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 載入 Babel 用於解析 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 載入 Lucide 圖示 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+        }
+        input[type="range"] {
+            accent-color: #db2777;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        // 簡易 Lucide Icon 組件
+        const Icon = ({ name, size = 24, className = "" }) => {
+            useEffect(() => {
+                lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const App = () => {
+            const [activeCategory, setActiveCategory] = useState('basic');
+            const [strategy, setStrategy] = useState('BC'); 
+            const [strike1, setStrike1] = useState(30000);
+            const [premium1, setPremium1] = useState(200);
+            const [strike2, setStrike2] = useState(30400);
+            const [premium2, setPremium2] = useState(200);
+            const [currentPrice, setCurrentPrice] = useState(30100);
+
+            const strategies = {
+                basic: [
+                    { id: 'BC', name: '買入買權 (BC)', desc: '看大漲。風險有限，獲利無限。' },
+                    { id: 'BP', name: '買入賣權 (BP)', desc: '看大跌。風險有限，獲利看漲幅。' },
+                    { id: 'SC', name: '賣出買權 (SC)', desc: '看小跌或盤整。獲利有限，風險無限。' },
+                    { id: 'SP', name: '賣出賣權 (SP)', desc: '看小漲或盤整。獲利有限，風險有限。' },
+                ],
+                vertical: [
+                    { id: 'BullSpread', name: '牛市價差 (Bull Spread)', desc: '看漲。買低價Call + 賣高價Call。' },
+                    { id: 'BearSpread', name: '熊市價差 (Bear Spread)', desc: '看跌。買高價Put + 賣低價Put。' },
+                ],
+                volatility: [
+                    { id: 'LongStraddle', name: '買進跨式/勒式', desc: '預期大震盪。K1控制Call，K2控制Put。' },
+                    { id: 'ShortStraddle', name: '賣出跨式/勒式', desc: '預期盤整。K1控制Call，K2控制Put。' },
+                ]
+            };
+
+            const calculatePnL = (price) => {
+                switch (strategy) {
+                    case 'BC': return Math.max(0, price - strike1) - premium1;
+                    case 'BP': return Math.max(0, strike1 - price) - premium1;
+                    case 'SC': return premium1 - Math.max(0, price - strike1);
+                    case 'SP': return premium1 - Math.max(0, strike1 - price);
+                    case 'BullSpread':
+                        return (Math.max(0, price - strike1) - premium1) + (premium2 - Math.max(0, price - strike2));
+                    case 'BearSpread':
+                        return (Math.max(0, strike1 - price) - premium1) + (premium2 - Math.max(0, strike2 - price));
+                    case 'LongStraddle':
+                        return (Math.max(0, price - strike1) - premium1) + (Math.max(0, strike2 - price) - premium2);
+                    case 'ShortStraddle':
+                        return (premium1 - Math.max(0, price - strike1)) + (premium2 - Math.max(0, strike2 - price));
+                    default: return 0;
+                }
+            };
+
+            const currentPnL = calculatePnL(currentPrice);
+
+            const width = 800;
+            const height = 450;
+            const padding = 70;
+            const chartWidth = width - padding * 2;
+            const chartHeight = height - padding * 2;
+
+            const viewRange = { min: 28000, max: 32000 };
+            const xScale = (p) => padding + ((p - viewRange.min) / (viewRange.max - viewRange.min)) * chartWidth;
+            const yScale = (pnl) => {
+                const fixedLimit = 1500;
+                return padding + chartHeight - ((pnl + 500) / fixedLimit) * chartHeight;
+            };
+
+            const zeroY = yScale(0);
+
+            const profitAreaPath = useMemo(() => {
+                const points = [];
+                const step = 20;
+                let path = "";
+                for (let p = viewRange.min; p <= viewRange.max; p += step) {
+                    const pnl = calculatePnL(p);
+                    if (pnl > 0) {
+                        if (path === "") path = `M ${xScale(p)} ${zeroY} `;
+                        path += `L ${xScale(p)} ${yScale(pnl)} `;
+                    } else if (path !== "") {
+                        path += `L ${xScale(p - step)} ${zeroY} Z `;
+                        points.push(path);
+                        path = "";
+                    }
+                }
+                if (path !== "") {
+                    path += `L ${xScale(viewRange.max)} ${zeroY} Z `;
+                    points.push(path);
+                }
+                return points;
+            }, [strategy, strike1, strike2, premium1, premium2]);
+
+            const pnlPath = useMemo(() => {
+                const points = [];
+                for (let p = viewRange.min; p <= viewRange.max; p += 10) {
+                    points.push(`${xScale(p)},${yScale(calculatePnL(p))}`);
+                }
+                return points.join(' ');
+            }, [strategy, strike1, strike2, premium1, premium2]);
+
+            return (
+                <div className="p-4 md:p-6 max-w-6xl mx-auto">
+                    {/* Header */}
+                    <header className="mb-6">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                            <h1 className="text-2xl font-black flex items-center gap-2">
+                                <Icon name="activity" className="text-pink-600" /> 選擇權策略模擬器 v2.1
+                            </h1>
+                            <div className="flex items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
+                                <span className="text-sm font-bold text-slate-500 ml-2">即時市價:</span>
+                                <span className="text-xl font-mono font-black text-green-600 px-4">{currentPrice.toLocaleString()}</span>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2 bg-slate-200/50 p-1 rounded-2xl mb-4">
+                            {['basic', 'vertical', 'volatility'].map((cat, idx) => (
+                                <button 
+                                    key={cat}
+                                    onClick={() => { setActiveCategory(cat); setStrategy(strategies[cat][0].id); }} 
+                                    className={`flex-1 py-2 rounded-xl text-sm font-black transition ${activeCategory === cat ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}
+                                >
+                                    {idx + 1}. {cat === 'basic' ? '基礎四大' : cat === 'vertical' ? '垂直價差' : '波動率策略'}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {strategies[activeCategory].map((s) => (
+                                <button key={s.id} onClick={() => setStrategy(s.id)} className={`p-3 rounded-xl border-2 text-left transition ${strategy === s.id ? 'bg-white border-pink-500 ring-2 ring-pink-50' : 'bg-white/50 border-transparent opacity-60'}`}>
+                                    <div className="text-[10px] font-black uppercase text-pink-500">{s.id}</div>
+                                    <div className="text-sm font-black">{s.name.split(' (')[0]}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </header>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* 左側面板 */}
+                        <div className="space-y-4">
+                            <section className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">即時連動控制</h3>
+                                <div className="space-y-6">
+                                    <div className="bg-green-50/50 p-4 rounded-2xl border border-green-100">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <label className="text-xs font-black text-green-700">拖動目前市價</label>
+                                            <span className="text-lg font-mono font-black text-green-600">{currentPrice}</span>
+                                        </div>
+                                        <input type="range" min="28500" max="31500" step="10" value={currentPrice} onChange={e => setCurrentPrice(Number(e.target.value))} className="w-full h-1.5 bg-green-200 rounded-lg appearance-none cursor-pointer" />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-end">
+                                            <label className="text-xs font-black text-slate-700">執行價 K1</label>
+                                            <span className="text-lg font-mono font-black text-pink-600">{strike1}</span>
+                                        </div>
+                                        <input type="range" min="28500" max="31500" step="50" value={strike1} onChange={e => setStrike1(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
+                                        <div className="flex justify-between items-end">
+                                            <label className="text-xs font-black text-slate-700">權利金 P1</label>
+                                            <span className="text-lg font-mono font-black text-red-500">{premium1}</span>
+                                        </div>
+                                        <input type="range" min="10" max="1000" step="10" value={premium1} onChange={e => setPremium1(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
+                                    </div>
+                                    {activeCategory !== 'basic' && (
+                                        <div className="pt-4 border-t border-slate-100 space-y-4">
+                                            <div className="flex justify-between items-end">
+                                                <label className="text-xs font-black text-slate-700">執行價 K2</label>
+                                                <span className="text-lg font-mono font-black text-indigo-600">{strike2}</span>
+                                            </div>
+                                            <input type="range" min="28500" max="31500" step="50" value={strike2} onChange={e => setStrike2(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
+                                            <div className="flex justify-between items-end">
+                                                <label className="text-xs font-black text-slate-700">權利金 P2</label>
+                                                <span className="text-lg font-mono font-black text-orange-500">{premium2}</span>
+                                            </div>
+                                            <input type="range" min="10" max="1000" step="10" value={premium2} onChange={e => setPremium2(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                            <section className="bg-slate-900 text-white p-5 rounded-3xl shadow-lg text-center">
+                                <div className="text-xs font-bold text-slate-400 mb-2 uppercase">即時損益</div>
+                                <div className={`text-4xl font-mono font-black ${currentPnL >= 0 ? 'text-pink-400' : 'text-red-400'}`}>
+                                    {currentPnL >= 0 ? '+' : ''}{currentPnL.toFixed(0)}
+                                </div>
+                            </section>
+                        </div>
+
+                        {/* 圖表區 */}
+                        <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                            <h2 className="text-xl font-black mb-1">{strategies[activeCategory].find(s => s.id === strategy).name}</h2>
+                            <p className="text-sm text-slate-500 font-bold mb-6">{strategies[activeCategory].find(s => s.id === strategy).desc}</p>
+                            
+                            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none drop-shadow-sm bg-slate-50/20 rounded-2xl">
+                                <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#94a3b8" strokeWidth="2" />
+                                <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#94a3b8" strokeWidth="2" />
+                                {profitAreaPath.map((d, i) => <path key={i} d={d} fill="#fbcfe8" fillOpacity="0.7" />)}
+                                <polyline points={pnlPath} fill="none" stroke="#be185d" strokeWidth="6" strokeLinejoin="round" />
+                                
+                                <g>
+                                    <line x1={xScale(strike1)} y1={padding} x2={xScale(strike1)} y2={height - padding} stroke="#f472b6" strokeDasharray="6,4" strokeWidth="2" />
+                                    <rect x={xScale(strike1) - 45} y={padding - 45} width="90" height="32" rx="10" fill="#fdf2f8" stroke="#f472b6" strokeWidth="1.5" />
+                                    <text x={xScale(strike1)} y={padding - 23} textAnchor="middle" className="text-sm font-black fill-pink-600">K:{strike1}</text>
+                                </g>
+
+                                {activeCategory !== 'basic' && (
+                                    <g>
+                                        <line x1={xScale(strike2)} y1={padding} x2={xScale(strike2)} y2={height - padding} stroke="#6366f1" strokeDasharray="6,4" strokeWidth="2" />
+                                        <rect x={xScale(strike2) - 45} y={padding - 45} width="90" height="32" rx="10" fill="#eef2ff" stroke="#6366f1" strokeWidth="1.5" />
+                                        <text x={xScale(strike2)} y={padding - 23} textAnchor="middle" className="text-sm font-black fill-indigo-600">K:{strike2}</text>
+                                    </g>
+                                )}
+
+                                <line x1={xScale(currentPrice)} y1={padding} x2={xScale(currentPrice)} y2={height - padding} stroke="#10b981" strokeWidth="4" strokeDasharray="3,3" />
+                                <circle cx={xScale(currentPrice)} cy={yScale(currentPnL)} r="10" fill="#10b981" stroke="white" strokeWidth="3" />
+                                <g transform={`translate(${xScale(currentPrice) - 40}, ${yScale(currentPnL) - 48})`}>
+                                    <rect width="80" height="36" rx="10" fill="#1e293b" />
+                                    <text x="40" y="24" textAnchor="middle" className="text-base font-black fill-white font-mono">{currentPnL.toFixed(0)}</text>
+                                </g>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

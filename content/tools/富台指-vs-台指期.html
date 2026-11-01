@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>J-Option 富台指換算 - 最終優化版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        try {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'joption-stats-v1';
+
+            window.firebaseTools = { 
+                db, auth, appId, increment, doc, setDoc, collection, onSnapshot, 
+                signInAnonymously, signInWithCustomToken 
+            };
+        } catch (e) {
+            console.error("Firebase Init Error");
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background: #ffffff; 
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        .full-screen-wrap {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .price-glow {
+            text-shadow: 0 0 15px rgba(245, 158, 11, 0.1);
+        }
+
+        .up-trend { color: #ef4444; } 
+        .down-trend { color: #10b981; } 
+
+        .data-section {
+            padding: 15px 0;
+            border-bottom: 1px solid #f1f5f9;
+            position: relative;
+            background: #ffffff;
+        }
+
+        /* 水印 JOPTION */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.03;
+            font-weight: 900;
+            font-style: italic;
+            pointer-events: none;
+            user-select: none;
+            z-index: 0;
+            font-size: 15vw;
+            letter-spacing: -0.02em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="full-screen-wrap">
+    
+    <!-- Navbar: 極簡標題 -->
+    <nav class="bg-white border-b border-slate-100 py-2.5 px-4">
+        <h1 class="text-lg md:text-2xl font-black tracking-tight text-center text-slate-800 uppercase">
+            富台指與台指期換算
+        </h1>
+    </nav>
+
+    <!-- 狀態列 -->
+    <div class="flex justify-between items-center px-4 py-1.5 bg-slate-50 text-[10px] md:text-xs border-b border-slate-100">
+        <div class="font-bold text-slate-500 flex items-center gap-1.5">
+            <span class="relative flex h-2 w-2">
+                <span id="update-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            更新：<span id="last-update-time" class="font-mono text-slate-900 font-bold">讀取中</span>
+        </div>
+        <div class="flex items-center gap-1.5 font-bold text-slate-500">
+            <span id="sync-dot" class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+            同步：<span id="countdown" class="text-amber-600 font-mono">15</span>s
+        </div>
+    </div>
+
+    <!-- 數據核心：取消卡片設計，填滿寬度 -->
+    <main class="w-full flex-grow">
+        
+        <div class="data-section overflow-hidden">
+            <div class="watermark uppercase">JOPTION</div>
+            
+            <div class="relative z-10 flex flex-col items-center space-y-5 md:space-y-10">
+                <!-- 目前富台指 -->
+                <div class="text-center w-full px-4">
+                    <label class="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">目前富台指 (SGX)</label>
+                    <div id="futai-val" class="text-5xl md:text-7xl font-mono font-black tracking-tighter text-slate-900 leading-none">讀取中</div>
+                </div>
+
+                <!-- 裝飾性分隔 -->
+                <div class="w-20 h-[1px] bg-slate-100"></div>
+
+                <!-- 預估台指期 (字體大小與上方完全一致) -->
+                <div class="text-center w-full px-4">
+                    <label class="text-[10px] md:text-xs font-black text-amber-600 uppercase tracking-widest block mb-1.5">預估台指期 (TX)</label>
+                    <div id="tx-val" class="text-5xl md:text-7xl font-mono font-black text-amber-500 price-glow leading-none mb-4">---</div>
+                    
+                    <!-- 漲跌幅區塊 -->
+                    <div id="diff-container" class="inline-flex flex-col items-center hidden bg-slate-50/80 backdrop-blur-sm px-5 py-2 rounded-2xl border border-slate-100">
+                        <div class="text-[9px] md:text-xs font-bold text-slate-400 mb-1 uppercase tracking-tighter">
+                            較 2/14 04:59 封關 <span class="text-slate-600 font-mono">33969</span>
+                        </div>
+                        <div id="diff-display" class="flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl">
+                            <span id="diff-arrow"></span>
+                            <span id="diff-points">---</span>
+                            <span id="diff-percent" class="text-[10px] md:text-lg opacity-80 font-bold ml-1">(---%)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能與連結：全螢幕橫向排版 -->
+        <div class="w-full bg-slate-50 p-3 space-y-2">
+            <!-- 社群連結：新增「立刻加入」按鈕 -->
+            <a href="https://line.me/ti/g2/LqMZMyJ1RZSCoIGXdKOE8EWQDoybMtmzAk3D8A" target="_blank" class="w-full flex items-center justify-between bg-white border border-slate-200 p-3.5 rounded-xl active:bg-slate-50 transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center text-white text-base shadow-sm">👥</div>
+                    <div>
+                        <h4 class="text-xs md:text-sm font-black text-slate-800 leading-tight">歐伯供選擇權大小事</h4>
+                        <p class="text-[9px] text-slate-400 font-medium">即時掌握行情脈動</p>
+                    </div>
+                </div>
+                <span class="bg-slate-800 text-white text-[10px] font-black px-4 py-1.5 rounded-lg whitespace-nowrap shadow-sm">立刻加入</span>
+            </a>
+
+            <!-- 下單機廣告 -->
+            <a href="/" target="_blank" class="w-full flex items-center justify-between bg-slate-900 border border-slate-800 p-3.5 rounded-xl active:opacity-90 transition-all overflow-hidden relative">
+                <div class="relative z-10 flex items-center gap-3">
+                    <div class="w-9 h-9 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-base shadow-inner">⚡</div>
+                    <div>
+                        <h4 class="text-xs md:text-sm font-black text-amber-500 italic leading-tight">選擇權雙賣平衡下單機</h4>
+                        <p class="text-[9px] text-slate-400 font-medium">自動對沖 24H 即時盯盤</p>
+                    </div>
+                </div>
+                <span class="bg-amber-500 text-slate-900 text-[10px] font-black px-4 py-1.5 rounded-lg relative z-10 shadow-lg">了解詳情</span>
+            </a>
+        </div>
+    </main>
+
+    <!-- Footer: 統計數據 -->
+    <footer class="p-3 bg-white border-t border-slate-100 flex justify-center items-center gap-6">
+        <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+            👥 在線：<span id="online-users" class="text-slate-700 font-mono">1</span>
+        </span>
+        <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+            👁️ 瀏覽：<span id="total-views" class="text-slate-700 font-mono">...</span>
+        </span>
+    </footer>
+</div>
+
+<script>
+    const APP_STATE = {
+        ratio: 12.42,
+        refPrice: 33969,
+        futai: 0,
+        tx: 0,
+        nextUpdate: 15,
+        fetchInProgress: false,
+        proxies: ["https://api.allorigins.win/get?url=", "https://api.codetabs.com/v1/proxy?quest="],
+        proxyIdx: 0
+    };
+
+    // Firebase 統計核心
+    async function initStats() {
+        if (!window.firebaseTools) return;
+        const { db, auth, appId, increment, doc, setDoc, collection, onSnapshot, signInAnonymously, signInWithCustomToken } = window.firebaseTools;
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+            const user = auth.currentUser;
+            if (user) {
+                const statsDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'global');
+                await setDoc(statsDoc, { totalViews: increment(1) }, { merge: true });
+                onSnapshot(statsDoc, (snap) => {
+                    if (snap.exists()) document.getElementById('total-views').innerText = snap.data().totalViews?.toLocaleString() || '1';
+                }, (err) => {});
+
+                const presenceDoc = doc(db, 'artifacts', appId, 'public', 'data', 'presence', user.uid);
+                const updatePresence = () => setDoc(presenceDoc, { lastActive: Date.now() }, { merge: true });
+                updatePresence(); setInterval(updatePresence, 60000); 
+                const presenceCol = collection(db, 'artifacts', appId, 'public', 'data', 'presence');
+                onSnapshot(presenceCol, (snap) => {
+                    const now = Date.now();
+                    const activeCount = snap.docs.filter(d => (now - (d.data().lastActive || 0)) < 300000).length;
+                    document.getElementById('online-users').innerText = activeCount || '1';
+                }, (err) => {});
+            }
+        } catch (e) { console.error("Stats Auth Failure"); }
+    }
+
+    async function fetchWithRetry(url, retries = 5) {
+        const proxyBase = APP_STATE.proxies[APP_STATE.proxyIdx % APP_STATE.proxies.length];
+        const targetUrl = proxyBase + encodeURIComponent(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+        try {
+            const res = await fetch(targetUrl);
+            if (!res.ok) throw new Error("HTTP_ERROR");
+            let textContent = '';
+            if (proxyBase.includes("allorigins")) {
+                const data = await res.json();
+                textContent = data.contents;
+            } else {
+                textContent = await res.text();
+            }
+            if (!textContent || textContent.includes("<html")) throw new Error("PERMISSION_DENIED");
+            return textContent;
+        } catch (error) {
+            if (retries > 0) {
+                APP_STATE.proxyIdx++;
+                return fetchWithRetry(url, retries - 1);
+            }
+            throw error;
+        }
+    }
+
+    function updateComparison(currentTX) {
+        const diffContainer = document.getElementById('diff-container');
+        const diffPoints = document.getElementById('diff-points');
+        const diffPercent = document.getElementById('diff-percent');
+        const diffArrow = document.getElementById('diff-arrow');
+        const display = document.getElementById('diff-display');
+        const diff = currentTX - APP_STATE.refPrice;
+        const percent = (diff / APP_STATE.refPrice) * 100;
+        
+        diffContainer.classList.remove('hidden');
+        diffPoints.innerText = (diff > 0 ? "+" : "") + diff.toLocaleString();
+        diffPercent.innerText = `(${percent.toFixed(2)}%)`;
+        
+        if (diff > 0) {
+            display.className = "flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl up-trend";
+            diffArrow.innerHTML = "▲";
+        } else if (diff < 0) {
+            display.className = "flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl down-trend";
+            diffArrow.innerHTML = "▼";
+        } else {
+            display.className = "flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl text-slate-300";
+            diffArrow.innerHTML = "";
+        }
+    }
+
+    async function syncData() {
+        if (APP_STATE.fetchInProgress) return;
+        const GS_URL = "https://docs.google.com/spreadsheets/d/1Ysw95KCFw-sHDUntrzsg7zCWPsiAyIIHJ1Yg69pKuKk/export?format=csv&gid=1439471545";
+        const light = document.getElementById('sync-dot');
+        const countdownEl = document.getElementById('countdown');
+        const timeEl = document.getElementById('last-update-time');
+        const updatePing = document.getElementById('update-ping');
+
+        APP_STATE.fetchInProgress = true;
+        if (light) light.className = "w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse";
+        if (updatePing) updatePing.classList.remove('hidden');
+
+        try {
+            const rawText = await fetchWithRetry(GS_URL);
+            const rows = rawText.split(/\r?\n/).map(row => {
+                const cols = []; let curr = '', inQ = false;
+                for (let i = 0; i < row.length; i++) {
+                    const char = row[i];
+                    if (char === '"') inQ = !inQ;
+                    else if (char === ',' && !inQ) { cols.push(curr.trim()); curr = ''; }
+                    else curr += char;
+                }
+                cols.push(curr.trim()); return cols;
+            });
+
+            let targetValue = null;
+            if (rows.length >= 10 && rows[9].length >= 4) {
+                const rawVal = rows[9][3].replace(/[",\s]/g, '').trim();
+                const num = parseFloat(rawVal); if (!isNaN(num)) targetValue = num;
+            }
+
+            if (targetValue === null) {
+                const matches = rawText.match(/([0-9,]+(\.[0-9]+)?)/g);
+                if (matches) {
+                    for (let m of matches) {
+                        const clean = parseFloat(m.replace(/,/g, ''));
+                        if (clean > 500 && clean < 20000) { targetValue = clean; break; }
+                    }
+                }
+            }
+
+            if (targetValue) {
+                APP_STATE.futai = targetValue;
+                APP_STATE.tx = Math.round(targetValue * APP_STATE.ratio);
+                document.getElementById('futai-val').innerText = targetValue.toLocaleString();
+                document.getElementById('tx-val').innerText = APP_STATE.tx.toLocaleString();
+                const now = new Date();
+                timeEl.innerText = now.toLocaleTimeString('zh-TW', { hour12: false });
+                updateComparison(APP_STATE.tx);
+                if (light) light.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
+            }
+        } catch (error) {
+            if (light) light.className = "w-1.5 h-1.5 rounded-full bg-rose-500";
+        } finally {
+            APP_STATE.fetchInProgress = false;
+            APP_STATE.nextUpdate = 15;
+            if (countdownEl) countdownEl.innerText = "15";
+            if (updatePing) updatePing.classList.add('hidden');
+        }
+    }
+
+    (function start() {
+        syncData();
+        setTimeout(initStats, 1500);
+        setInterval(() => {
+            if (!APP_STATE.fetchInProgress) {
+                const countdownEl = document.getElementById('countdown');
+                APP_STATE.nextUpdate--;
+                if (APP_STATE.nextUpdate <= 0) syncData();
+                else if (countdownEl) countdownEl.innerText = APP_STATE.nextUpdate;
+            }
+        }, 1000);
+    })();
+</script>
+</body>
+</html>

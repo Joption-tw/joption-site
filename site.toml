@@ -1,0 +1,69 @@
+# 全站設定：網站名稱、首頁卡片、頁尾連結都在這裡改。
+
+name = "JOPTION 量化交易程式"
+description = "JOPTION 雙賣平衡下單機：操作手冊、策略說明、參數介紹與常見問題。"
+domain = "https://www.joption.com.tw"
+ga_id = "G-QLVS2TRSRG"
+
+logo = "/images/site/logo.png"
+hero_image = "/images/site/hero.jpg"
+hero_kicker = "選擇權量化交易程式"
+hero_title = "JOPTION 雙賣平衡下單機"
+
+# 首頁卡片，照這裡的順序顯示
+[[home_cards]]
+title = "Joption 是什麼？"
+url = "/選單/joption是什麼/"
+
+[[home_cards]]
+title = "Joption 策略核心"
+url = "/選單/joption策略核心/"
+
+[[home_cards]]
+title = "操作手冊"
+url = "/選單/全策略說明/"
+
+[[home_cards]]
+title = "設備要求"
+url = "/選單/硬體設備建議/"
+
+[[home_cards]]
+title = "當沖策略參數介紹"
+url = "/選單/參數設定介紹與建議/"
+
+[[home_cards]]
+title = "當沖策略說明"
+url = "/faq/當沖策略說明/"
+
+[[home_cards]]
+title = "歐大自我介紹"
+url = "/選單/歐大的自我介紹/"
+
+[[home_cards]]
+title = "訂閱及下載點"
+url = "/選單/下載及安裝說明/"
+
+[[home_cards]]
+title = "Q & A"
+url = "/faq/"
+
+# 每一頁底部的連結
+[[footer_links]]
+title = "YouTube"
+url = "https://www.youtube.com/@joption.suntree"
+
+[[footer_links]]
+title = "LINE 討論社群"
+url = "https://lihi.cc/LiHEH"
+
+[[footer_links]]
+title = "LINE@ 歐大的官方客服"
+url = "https://line.me/ti/p/MnAWXchQ7F"
+
+[[footer_links]]
+title = "Joption 平衡示範帳戶實績"
+url = "https://lihi.cc/2G8wG"
+
+[[footer_links]]
+title = "示範帳號 Telegram 通知群"
+url = "https://t.me/jnotify1688"

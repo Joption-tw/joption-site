@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<link rel="canonical" href="{{canonical}}">
+<meta property="og:title" content="{{title}}">
+<meta property="og:description" content="{{description}}">
+<meta property="og:url" content="{{canonical}}">
+<meta property="og:type" content="website">
+<link rel="icon" href="{{logo}}">
+<link rel="stylesheet" href="/assets/site.css">
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ga_id}}"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '{{ga_id}}');
+</script>
+</head>
+<body class="{{body_class}}">
+<a class="skip" href="#main">跳到主要內容</a>
+<header class="topbar">
+  <button class="menu-btn" type="button" aria-label="開啟選單" aria-expanded="false" aria-controls="sidebar">
+    <span></span><span></span><span></span>
+  </button>
+  <a class="brand" href="/"><img src="{{logo}}" alt="" width="32" height="32"><span>{{site_name}}</span></a>
+  <div class="search" role="search">
+    <input id="q" type="search" placeholder="搜尋教學與問題" aria-label="搜尋全站" autocomplete="off">
+    <div id="results" class="results" hidden></div>
+  </div>
+</header>
+<div class="scrim" hidden></div>
+{{hero}}
+<div class="layout">
+  <aside id="sidebar" class="sidebar"><nav aria-label="網站選單">{{nav}}</nav></aside>
+  <main id="main">{{main}}</main>
+</div>
+<footer class="foot">
+  <div class="foot-links">{{footer_links}}</div>
+</footer>
+<dialog id="zoom" aria-label="放大圖片"><img alt=""></dialog>
+<script src="/assets/site.js" defer></script>
+</body>
+</html>

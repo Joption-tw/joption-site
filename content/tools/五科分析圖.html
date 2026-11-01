@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五科能力雷達圖生成器</title>
+    
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel 用來解析 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        const FiveSubjectRadar = () => {
+            // 定義科目與初始等級
+            // 0=C, 1=B, 2=B+, 3=B++, 4=A, 5=A+, 6=A++
+            const [scores, setScores] = useState({
+                chinese: 3, // 國文
+                english: 3, // 英文
+                math: 3,    // 數學
+                science: 3, // 自然
+                social: 3   // 社會
+            });
+
+            const subjects = [
+                { key: 'math', label: '數學 (Math)' },
+                { key: 'science', label: '自然 (Sci)' },
+                { key: 'social', label: '社會 (Soc)' },
+                { key: 'chinese', label: '國文 (Chi)' },
+                { key: 'english', label: '英文 (Eng)' },
+            ];
+
+            const levels = ['C', 'B', 'B+', 'B++', 'A', 'A+', 'A++'];
+            const maxLevel = levels.length - 1;
+
+            // 圖表設定
+            const size = 340;
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = 100;
+            const sides = 5;
+
+            // 計算頂點座標的函數
+            const getPointOnPolygon = (index, value, maxVal, totalSides, r) => {
+                const angle = (Math.PI * 2 * index) / totalSides - Math.PI / 2;
+                const distance = ((value + 1) / (maxVal + 1)) * r;
+                const x = centerX + distance * Math.cos(angle);
+                const y = centerY + distance * Math.sin(angle);
+                return { x, y };
+            };
+
+            // 生成背景網格 (同心五邊形)
+            const gridPolygons = useMemo(() => {
+                const polygons = [];
+                for (let i = 0; i <= maxLevel; i++) {
+                let points = "";
+                for (let j = 0; j < sides; j++) {
+                    const { x, y } = getPointOnPolygon(j, i, maxLevel, sides, radius);
+                    points += `${x},${y} `;
+                }
+                polygons.push(
+                    <polygon
+                    key={`grid-${i}`}
+                    points={points}
+                    fill="none"
+                    stroke={i === maxLevel ? "#000" : "#e5e7eb"}
+                    strokeWidth={i === maxLevel ? "2" : "1"}
+                    />
+                );
+                }
+                return polygons;
+            }, [maxLevel]);
+
+            // 生成軸線與標籤
+            const axes = useMemo(() => {
+                const lines = [];
+                const labels = [];
+                for (let i = 0; i < sides; i++) {
+                const { x, y } = getPointOnPolygon(i, maxLevel, maxLevel, sides, radius);
+                // Line from center
+                lines.push(
+                    <line
+                    key={`axis-${i}`}
+                    x1={centerX}
+                    y1={centerY}
+                    x2={x}
+                    y2={y}
+                    stroke="#9ca3af"
+                    strokeWidth="1"
+                    />
+                );
+                
+                const angle = (Math.PI * 2 * i) / sides - Math.PI / 2;
+
+                // 1. A++ 標籤 (位於頂點外側)
+                const gradeDistance = radius + 15;
+                const gx = centerX + gradeDistance * Math.cos(angle);
+                const gy = centerY + gradeDistance * Math.sin(angle);
+                
+                labels.push(
+                    <text
+                    key={`grade-${i}`}
+                    x={gx}
+                    y={gy}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="text-[10px] font-bold fill-blue-500"
+                    >
+                    A++
+                    </text>
+                );
+
+                // 2. 科目名稱標籤 (再往外推一點)
+                const labelDistance = radius + 35;
+                const lx = centerX + labelDistance * Math.cos(angle);
+                const ly = centerY + labelDistance * Math.sin(angle);
+                
+                labels.push(
+                    <text
+                    key={`label-${i}`}
+                    x={lx}
+                    y={ly}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="text-xs font-bold fill-gray-700"
+                    >
+                    {subjects[i].label.split(' ')[0]}
+                    </text>
+                );
+                }
+                return { lines, labels };
+            }, [maxLevel]);
+
+            // 生成數據多邊形
+            const dataPolygon = useMemo(() => {
+                let points = "";
+                subjects.forEach((subj, index) => {
+                const val = scores[subj.key];
+                const { x, y } = getPointOnPolygon(index, val, maxLevel, sides, radius);
+                points += `${x},${y} `;
+                });
+                return points;
+            }, [scores]);
+
+            // 生成數據點 (圓點)
+            const dataDots = useMemo(() => {
+                return subjects.map((subj, index) => {
+                const val = scores[subj.key];
+                const { x, y } = getPointOnPolygon(index, val, maxLevel, sides, radius);
+                return (
+                    <circle
+                    key={`dot-${index}`}
+                    cx={x}
+                    cy={y}
+                    r="4"
+                    className="fill-blue-600 hover:r-6 transition-all duration-200"
+                    />
+                );
+                });
+            }, [scores]);
+
+            const handleScoreChange = (subject, value) => {
+                setScores(prev => ({
+                ...prev,
+                [subject]: parseInt(value)
+                }));
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center p-6 bg-gray-50 min-h-screen font-sans">
+                <div className="max-w-4xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
+                    
+                    {/* 左側：控制面板 */}
+                    <div className="w-full md:w-1/2 p-8 bg-gray-50 border-r border-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span className="bg-blue-600 w-2 h-8 mr-3 rounded"></span>
+                        成績評量輸入
+                    </h2>
+                    
+                    <div className="space-y-6">
+                        {subjects.map((subj) => (
+                        <div key={subj.key} className="flex flex-col">
+                            <div className="flex justify-between items-center mb-2">
+                            <label className="text-gray-700 font-semibold flex items-center">
+                                {subj.label.split(' ')[0]}
+                                <span className="text-gray-400 text-xs ml-2 font-normal">{subj.label.split(' ')[1]}</span>
+                            </label>
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                scores[subj.key] >= 4 ? 'bg-green-100 text-green-700' : 
+                                scores[subj.key] >= 2 ? 'bg-blue-100 text-blue-700' : 
+                                'bg-red-100 text-red-700'
+                            }`}>
+                                {levels[scores[subj.key]]}
+                            </span>
+                            </div>
+                            <input
+                            type="range"
+                            min="0"
+                            max="6"
+                            step="1"
+                            value={scores[subj.key]}
+                            onChange={(e) => handleScoreChange(subj.key, e.target.value)}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                            <div className="flex justify-between text-xs text-gray-400 mt-1 px-1">
+                            <span>C</span>
+                            <span>B++</span>
+                            <span>A++</span>
+                            </div>
+                        </div>
+                        ))}
+                    </div>
+                    </div>
+
+                    {/* 右側：雷達圖顯示 */}
+                    <div className="w-full md:w-1/2 p-8 flex flex-col items-center justify-center bg-white">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">五力分析雷達圖</h3>
+                    
+                    <div className="relative">
+                        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform transition-all duration-500">
+                        {gridPolygons}
+                        {axes.lines}
+                        <polygon
+                            points={dataPolygon}
+                            fill="rgba(37, 99, 235, 0.4)"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                            className="transition-all duration-300 ease-out"
+                        />
+                        {dataDots}
+                        {axes.labels}
+                        </svg>
+                    </div>
+
+                    <div className="mt-6 w-full bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <div className="text-center">
+                        <p className="text-sm text-gray-600 mb-1">目前整體表現</p>
+                        <div className="flex justify-center space-x-2">
+                            {subjects.map(s => (
+                            scores[s.key] >= 5 && (
+                                <span key={s.key} className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded border border-yellow-200">
+                                Top: {s.label.split(' ')[0]}
+                                </span>
+                            )
+                            ))}
+                        </div>
+                        {Object.values(scores).every(s => s < 2) && (
+                            <span className="text-xs text-red-500 font-medium">加油！基礎打穩最重要。</span>
+                        )}
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FiveSubjectRadar />);
+    </script>
+</body>
+</html>

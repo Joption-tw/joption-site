@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>J-Option 富台指精算策略儀表板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #0f172a; 
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        .dashboard-card { 
+            background: #1e293b; 
+            border: 1px solid #334155; 
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        @media (min-width: 768px) {
+            .dashboard-card { border-radius: 1.5rem; }
+        }
+        .price-highlight {
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        }
+        .status-dot { transition: all 0.3s ease; }
+        .ad-gradient {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        .title-glow {
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+        .vs-glow {
+            text-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
+        }
+        .trend-up { color: #f87171; text-shadow: 0 0 10px rgba(248, 113, 113, 0.3); }
+        .trend-down { color: #4ade80; text-shadow: 0 0 10px rgba(74, 222, 128, 0.3); }
+    </style>
+</head>
+<body class="selection:bg-amber-500 selection:text-white">
+
+<div id="app" class="min-h-screen flex flex-col items-center p-2 sm:p-4">
+    
+    <main class="w-full max-w-7xl space-y-4 sm:space-y-8 py-2 sm:py-6">
+        
+        <!-- 1. 置中大標題 - 手機版縮小字體與間距 -->
+        <div class="flex justify-center mb-1 sm:mb-4 relative z-10">
+            <h1 class="text-xl sm:text-3xl md:text-5xl font-black text-white tracking-wider flex items-end gap-2 sm:gap-4 flex-wrap justify-center">
+                <span class="title-glow">富台指</span>
+                <span class="text-amber-500 vs-glow text-2xl sm:text-4xl md:text-6xl italic transform -translate-y-0.5 sm:-translate-y-1">VS</span>
+                <span class="title-glow">台指期</span>
+                <span class="text-slate-500 text-sm sm:text-xl md:text-2xl font-bold tracking-widest ml-1 mb-0.5">轉換儀錶板</span>
+            </h1>
+        </div>
+
+        <!-- 2. 主要儀表板卡片 - 手機版減少內距 -->
+        <div class="dashboard-card p-4 sm:p-10 md:p-16 relative overflow-hidden group">
+            <div class="absolute -right-10 -bottom-10 opacity-[0.02] text-[10rem] sm:text-[15rem] font-black italic select-none text-white pointer-events-none">LIVE</div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-11 gap-4 sm:gap-6 items-center text-center md:text-left">
+                <!-- 左側區塊 -->
+                <div class="md:col-span-4 flex flex-col items-center md:items-start">
+                    
+                    <!-- 更新狀態膠囊 - 手機版更小 -->
+                    <div class="mb-3 sm:mb-6">
+                        <div class="flex items-center gap-2 sm:gap-3 bg-slate-800/80 backdrop-blur-md px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-slate-700 shadow-lg w-fit">
+                            <span id="sync-dot" class="status-dot w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-600"></span>
+                            <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-white">
+                                更新：<span id="countdown" class="text-amber-500 font-mono text-xs sm:text-sm">15</span>s
+                            </span>
+                            <div class="w-px h-2 sm:h-3 bg-slate-600 mx-0.5 sm:mx-1"></div>
+                            <span id="last-updated" class="text-[9px] sm:text-[10px] font-mono text-slate-400 tracking-wide">--:--:--</span>
+                        </div>
+                    </div>
+
+                    <label class="text-sm sm:text-xl font-black text-slate-400 uppercase tracking-[0.1em] sm:tracking-[0.2em] block mb-1 sm:mb-4 opacity-80">目前富台指 (SGX)</label>
+                    
+                    <div class="flex items-baseline justify-center md:justify-start gap-4 text-white">
+                        <!-- 手機版數字縮小以確保不換行 -->
+                        <span id="futai-val" class="text-4xl sm:text-6xl md:text-7xl font-mono font-black tracking-tighter leading-none">---</span>
+                    </div>
+                </div>
+                
+                <!-- 分隔線 - 手機版橫向且縮短 -->
+                <div class="md:col-span-1 flex justify-center py-2 sm:py-8 md:py-4">
+                    <div class="h-24 sm:h-32 w-[1px] bg-slate-700 hidden md:block opacity-40"></div>
+                    <div class="w-16 h-[1px] bg-slate-700 md:hidden opacity-30"></div>
+                </div>
+
+                <!-- 右側：預估台指期 -->
+                <div class="md:col-span-6 bg-slate-900/40 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-10 border border-amber-500/10 shadow-inner flex flex-col justify-center items-center">
+                    <label class="text-sm sm:text-xl font-black text-amber-500/80 uppercase tracking-[0.1em] sm:tracking-[0.2em] block mb-1 sm:mb-4 text-center">預估台指期 (TX)</label>
+                    
+                    <div class="flex items-baseline justify-center gap-4 w-full mb-1 sm:mb-4">
+                        <!-- 手機版數字縮小 -->
+                        <div id="tx-val" class="text-3xl sm:text-5xl md:text-6xl font-mono font-black text-amber-500 price-highlight tracking-tighter leading-none text-center w-full">---</div>
+                    </div>
+
+                    <div id="tx-comparison" class="text-center font-bold tracking-wider leading-relaxed opacity-0 transition-opacity duration-500 text-[10px] sm:text-base">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Line 社群區塊 - 手機版縮小間距 -->
+        <div class="dashboard-card border-amber-500/20 bg-slate-900/40 p-4 sm:p-10 text-center">
+            <h3 class="text-lg sm:text-2xl font-black text-amber-500 tracking-wider title-glow mb-2 sm:mb-4">歐伯供選擇權大小事</h3>
+            <p class="text-xs sm:text-lg font-bold text-white leading-relaxed opacity-80 mb-4 sm:mb-8 max-w-2xl mx-auto">
+                加入社群，即時掌握選擇權你必須知道的大小事
+            </p>
+            <a href="https://line.me/ti/g2/LqMZMyJ1RZSCoIGXdKOE8EWQDoybMtmzAk3D8A" target="_blank" class="inline-flex items-center justify-center w-full max-w-sm py-3 sm:py-4 bg-slate-700 hover:bg-amber-500 hover:text-slate-900 text-amber-500 text-sm sm:text-lg font-black rounded-xl sm:rounded-2xl transition-all shadow-lg transform hover:-translate-y-1">
+                點擊加入討論群
+            </a>
+        </div>
+
+        <!-- 4. 產品廣告區塊 -->
+        <div class="dashboard-card ad-gradient p-6 sm:p-12 border-none shadow-2xl relative overflow-hidden group">
+            <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10 items-center text-center lg:text-left">
+                <div class="lg:col-span-2 space-y-4 sm:space-y-6 text-white">
+                    <h4 class="text-xl sm:text-4xl font-black text-slate-900 italic tracking-tighter leading-tight">
+                        <span class="font-black">JOPTION</span> 選擇權雙賣平衡下單機
+                    </h4>
+                    <p class="text-sm sm:text-lg font-bold text-slate-900/80 leading-relaxed">
+                        智慧自動下單平衡，有效掌控風險，24小時即時盯盤！希臘值精確平衡，不再焦慮手動調整。
+                    </p>
+                </div>
+                <div class="flex flex-col items-center justify-center">
+                    <a href="/" target="_blank" class="w-full max-w-xs bg-slate-900 text-amber-500 font-black py-4 sm:py-6 rounded-xl sm:rounded-[2rem] text-base sm:text-xl shadow-2xl transition-transform hover:scale-[1.05] active:scale-95 text-center">
+                        了解下單機
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+    </main>
+
+    <!-- 5. 頁尾統計資訊 - 手機版文字更小 -->
+    <footer class="mt-2 pb-8 text-center text-[9px] sm:text-[11px] text-slate-500 font-bold tracking-widest w-full">
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-8 opacity-70">
+            <div class="flex items-center gap-2">
+                <span>最新登入人次：</span>
+                <span id="visit-count" class="text-amber-500/90 font-mono text-xs sm:text-sm">---</span>
+            </div>
+            <div class="hidden sm:block w-1 h-1 rounded-full bg-slate-700"></div>
+            <div class="flex items-center gap-2">
+                <span>目前在線人數：</span>
+                <span id="online-count" class="text-green-500/90 font-mono text-xs sm:text-sm">---</span>
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-green-500"></span>
+                </span>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<script>
+    const APP_STATE = {
+        ratio: 12.42,
+        futai: 0,
+        tx: 0,
+        nextUpdate: 15,
+        fetchInProgress: false,
+        proxies: [
+            "https://corsproxy.io/?",
+            "https://api.allorigins.win/get?url=",
+            "https://api.codetabs.com/v1/proxy?quest="
+        ],
+        proxyIdx: 0,
+        refPrice: 33969,
+        startTime: Date.now()
+    };
+
+    function loadCachedData() {
+        const cachedFutai = localStorage.getItem('joption_futai');
+        const val = cachedFutai ? parseFloat(cachedFutai) : 2731;
+        updateUI(val, true); 
+    }
+
+    function updateStats() {
+        const baseVisits = 0;
+        const elapsedSec = Math.floor((Date.now() - APP_STATE.startTime) / 1000);
+        const visits = baseVisits + Math.floor(elapsedSec / 10) * 2 + Math.floor(Math.random() * 5);
+        const online = Math.floor(Math.random() * 12) + 1;
+        const visitEl = document.getElementById('visit-count');
+        const onlineEl = document.getElementById('online-count');
+        if(visitEl) visitEl.innerText = visits.toLocaleString();
+        if(onlineEl) onlineEl.innerText = online.toLocaleString();
+    }
+
+    async function fetchWithRetry(url, retries = 5) {
+        const proxyBase = APP_STATE.proxies[APP_STATE.proxyIdx % APP_STATE.proxies.length];
+        const targetUrl = proxyBase + encodeURIComponent(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+            const res = await fetch(targetUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!res.ok) throw new Error("HTTP_ERROR");
+            let textContent = '';
+            if (proxyBase.includes("allorigins")) {
+                const data = await res.json();
+                textContent = data.contents;
+            } else {
+                textContent = await res.text();
+            }
+            if (textContent.includes("<!DOCTYPE html>") || textContent.includes("<html")) {
+                throw new Error("DETECTED_HTML"); 
+            }
+            return textContent;
+        } catch (error) {
+            if (retries > 0) {
+                APP_STATE.proxyIdx++;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                return fetchWithRetry(url, retries - 1);
+            }
+            throw error;
+        }
+    }
+
+    function updateUI(targetValue, isCached = false) {
+        if (!targetValue) return;
+        APP_STATE.futai = targetValue;
+        APP_STATE.tx = Math.round(targetValue * APP_STATE.ratio);
+        const fValEl = document.getElementById('futai-val');
+        const tValEl = document.getElementById('tx-val');
+        if (fValEl) fValEl.innerText = targetValue.toLocaleString();
+        if (tValEl) tValEl.innerText = APP_STATE.tx.toLocaleString();
+        if (!isCached) localStorage.setItem('joption_futai', targetValue);
+        updateComparison(APP_STATE.tx);
+    }
+
+    function updateComparison(currentTx) {
+        const diff = currentTx - APP_STATE.refPrice;
+        const percent = (diff / APP_STATE.refPrice) * 100;
+        const isUp = diff >= 0;
+        const sign = isUp ? '+' : '';
+        const trendClass = isUp ? 'trend-up' : 'trend-down';
+        const arrow = isUp ? '▲' : '▼';
+        const html = `
+            <div class="text-slate-400 text-[9px] sm:text-sm font-bold mb-0.5 sm:mb-1">較 2026/2/14 04:59 收盤 33969</div>
+            <div class="${trendClass} text-sm sm:text-xl font-black">
+                ${arrow} ${sign}${diff.toLocaleString()} (${sign}${percent.toFixed(2)}%)
+            </div>
+        `;
+        const el = document.getElementById('tx-comparison');
+        if (el) {
+            el.innerHTML = html;
+            el.classList.remove('opacity-0');
+        }
+    }
+
+    async function syncData() {
+        if (APP_STATE.fetchInProgress) return;
+        const GS_URL = "https://docs.google.com/spreadsheets/d/1Ysw95KCFw-sHDUntrzsg7zCWPsiAyIIHJ1Yg69pKuKk/export?format=csv&gid=1439471545";
+        const light = document.getElementById('sync-dot');
+        const countdownEl = document.getElementById('countdown');
+        const timeEl = document.getElementById('last-updated');
+        APP_STATE.fetchInProgress = true;
+        if (light) light.className = "status-dot w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.6)]";
+        try {
+            const rawText = await fetchWithRetry(GS_URL);
+            const rows = rawText.split(/\r?\n/).map(row => {
+                const cols = []; let curr = '', inQ = false;
+                for (let i = 0; i < row.length; i++) {
+                    const char = row[i];
+                    if (char === '"') inQ = !inQ;
+                    else if (char === ',' && !inQ) { cols.push(curr.trim()); curr = ''; }
+                    else curr += char;
+                }
+                cols.push(curr.trim()); return cols;
+            });
+            let targetValue = null;
+            if (rows.length >= 10 && rows[9].length >= 4) {
+                const rawVal = rows[9][3].replace(/[",\s]/g, '').trim();
+                const num = parseFloat(rawVal);
+                if (!isNaN(num)) targetValue = num;
+            }
+            if (targetValue === null) {
+                const matches = rawText.match(/([0-9,]+(\.[0-9]+)?)/g);
+                if (matches) {
+                    for (let m of matches) {
+                        const clean = parseFloat(m.replace(/,/g, ''));
+                        if (clean > 500 && clean < 20000) { targetValue = clean; break; }
+                    }
+                }
+            }
+            if (targetValue) {
+                updateUI(targetValue, false);
+                if (light) light.className = "status-dot w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]";
+                if (timeEl) {
+                    const now = new Date();
+                    timeEl.innerText = now.toLocaleTimeString('zh-TW', { hour12: false });
+                }
+            }
+        } catch (error) {
+            if (light) light.className = "status-dot w-2 h-2 rounded-full bg-slate-500"; 
+            console.error("同步失敗", error); 
+        } finally {
+            APP_STATE.fetchInProgress = false;
+            APP_STATE.nextUpdate = 15;
+            if (countdownEl) countdownEl.innerText = "15";
+        }
+    }
+
+    window.onload = () => {
+        loadCachedData(); 
+        updateStats(); 
+        syncData(); 
+        setInterval(() => {
+            if (!APP_STATE.fetchInProgress) {
+                const countdownEl = document.getElementById('countdown');
+                APP_STATE.nextUpdate--;
+                if (APP_STATE.nextUpdate <= 0) syncData();
+                else if (countdownEl) countdownEl.innerText = APP_STATE.nextUpdate;
+            }
+        }, 1000);
+        setInterval(updateStats, 10000);
+    };
+</script>
+</body>
+</html>
