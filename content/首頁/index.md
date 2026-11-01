@@ -1,5 +1,5 @@
 ---
 title: 首頁
-order: 10
+order: 1
 redirect: /
 ---

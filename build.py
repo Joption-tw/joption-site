@@ -54,25 +54,38 @@ def collect_pages():
                 "summary": meta.get("summary", ""),
                 "layout": meta.get("layout", "page"),
                 "redirect": meta.get("redirect"),
+                "menu": meta.get("menu"),
                 "body": body,
             })
     return pages
 
 
 def build_tree(pages):
-    """資料夾就是選單：不必另外維護目錄。"""
+    """資料夾就是選單：不必另外維護目錄。頁面寫 menu 時改放到那個分類，網址不變。"""
     by_url = {p["url"]: p for p in pages}
+
+    def nav_path(p):
+        if p["menu"]:
+            base = [] if p["menu"] == "/" else p["menu"].split("/")
+        else:
+            parent = p["parts"][:-1]
+            owner = by_url.get("/" + "".join(x + "/" for x in parent))
+            base = nav_path(owner) if parent and owner else parent
+        return base + p["parts"][-1:]
+
+    for p in pages:
+        p["nav"] = nav_path(p) if p["parts"] else []
+    by_nav = {tuple(p["nav"]): p for p in pages if p["parts"]}
     nodes = {}
 
     def node(parts):
         key = tuple(parts)
         if key not in nodes:
-            url = "/" + "".join(p + "/" for p in parts)
-            page = by_url.get(url)
-            nodes[key] = {"url": url, "page": page, "title": page["title"] if page else parts[-1],
+            page = by_nav.get(key)
+            nodes[key] = {"url": page["url"] if page else None, "page": page, "title": page["title"] if page else parts[-1],
                           "order": page["order"] if page else 100000, "children": [], "hidden": bool(page and page["hidden"])}
-            if not page:  # 只有資料夾沒有頁面（例如「選單」）時，順序跟著第一個子頁
-                nodes[key]["order"] = min((p["order"] for p in pages if p["parts"][:len(parts)] == parts), default=100000)
+            if not page:  # 只有分類沒有頁面（例如「選單」）時，順序跟著第一個子頁
+                nodes[key]["order"] = min((p["order"] for p in pages if p["nav"][:len(parts)] == parts), default=100000)
             if len(parts) > 1:
                 node(parts[:-1])["children"].append(nodes[key])
             else:
@@ -82,7 +95,7 @@ def build_tree(pages):
     top = []
     for p in pages:
         if p["parts"]:
-            node(p["parts"])
+            node(p["nav"])
 
     def sort(items):
         items.sort(key=lambda n: (n["order"], n["title"]))
@@ -90,7 +103,7 @@ def build_tree(pages):
             sort(n["children"])
 
     sort(top)
-    return top
+    return top, nodes
 
 
 def esc(t):
@@ -104,6 +117,10 @@ def page_link(n):
     return n["url"] if p else None
 
 
+def contains(n, url):
+    return n["url"] == url or any(contains(k, url) for k in n["children"])
+
+
 def render_nav(items, current, depth=0):
     out = ['<ul>']
     for n in items:
@@ -112,8 +129,7 @@ def render_nav(items, current, depth=0):
         kids = [k for k in n["children"] if not k["hidden"]]
         link = page_link(n)
         active = current == n["url"]
-        # 只是分類、沒有自己頁面的群組（例如「選單」）預設展開
-        inside = current.startswith(n["url"]) or not link
+        inside = contains(n, current)
         label = (f'<a href="{esc(link)}"{" aria-current=page" if active else ""}>{esc(n["title"])}</a>'
                  if link else f'<span>{esc(n["title"])}</span>')
         if kids:
@@ -204,17 +220,11 @@ def render_md(body, used, variants):
     return re.sub(r'<img [^>]*?src="([^"]+)"[^>]*>', img, out)
 
 
-def crumbs(page, by_url):
+def crumbs(page, nodes):
     bits = ['<a href="/">首頁</a>']
-    parts = page["parts"]
-    for i in range(len(parts)):
-        url = "/" + "".join(p + "/" for p in parts[: i + 1])
-        target = by_url.get(url)
-        if parts[i] == "首頁" and i == 0:
-            continue
-        if url == page["url"]:
-            break
-        bits.append(f'<a href="{esc(url)}">{esc(target["title"])}</a>' if target else f'<span>{esc(parts[i])}</span>')
+    for i in range(1, len(page["nav"])):
+        n = nodes[tuple(page["nav"][:i])]
+        bits.append(f'<a href="{esc(n["url"])}">{esc(n["title"])}</a>' if n["page"] else f'<span>{esc(n["title"])}</span>')
     return '<nav class="crumbs" aria-label="目前位置">' + " / ".join(bits) + "</nav>"
 
 
@@ -301,7 +311,7 @@ def build(base=None):
     template = template.replace("{{ver}}", digest.hexdigest()[:8])
     pages = collect_pages()
     by_url = {p["url"]: p for p in pages}
-    tree = build_tree(pages)
+    tree, nodes = build_tree(pages)
     order = list(flatten(tree))
     position = {n["url"]: i for i, n in enumerate(order)}
     tmp = f"{DIST}.tmp{os.getpid()}"
@@ -356,7 +366,7 @@ def build(base=None):
                     f'width="1120" height="1120" alt="" fetchpriority="high"></div></div>{PAYOFF}</section>')
             body_class, full_title = "home", site["name"]
         else:
-            main = (f'{crumbs(p, by_url)}<article class="prose"><h1>{esc(p["title"])}</h1>{content}</article>'
+            main = (f'{crumbs(p, nodes)}<article class="prose"><h1>{esc(p["title"])}</h1>{content}</article>'
                     f'{extra}{pager}')
             hero, body_class = "", "doc"
             full_title = f'{p["title"]} | {site["name"]}'
