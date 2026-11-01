@@ -180,7 +180,7 @@ iframe.embed { height: 1157px; }
   max-width: 1080px; margin: 0 auto; padding: 36px 32px 96px;
 }
 .hero-kicker { margin: 0 0 8px; font-size: 19px; font-weight: 700; color: var(--indigo-deep); letter-spacing: .06em; }
-.hero h1 { margin: 0; font-family: var(--display); font-size: clamp(32px, 5vw, 58px); font-weight: 900; line-height: 1.22; text-wrap: balance; }
+.hero h1 { margin: 0; font-family: var(--display); font-size: clamp(32px, 5vw, 58px); font-weight: 900; line-height: 1.22; word-break: keep-all; }
 .hero h1 b { display: block; font-weight: 400; font-size: 1.28em; line-height: 1.1; color: var(--indigo); text-shadow: 3px 3px 0 var(--coin); letter-spacing: .02em; }
 .hero-slogan {
   display: inline-block; margin: 18px 0 0; padding: 7px 18px; border: var(--edge); border-radius: 999px;
