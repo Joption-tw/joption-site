@@ -3,7 +3,7 @@
     python build.py            產生網站
     python build.py --serve    產生網站並開本機預覽，存檔後自動更新
 """
-import html, http.server, json, os, re, shutil, sys, threading, time, tomllib, urllib.parse
+import concurrent.futures, hashlib, html, http.server, json, os, re, shutil, sys, threading, time, tomllib, urllib.parse, webbrowser
 
 import markdown
 from PIL import Image
@@ -12,6 +12,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 CONTENT = os.path.join(ROOT, "content")
 THEME = os.path.join(ROOT, "theme")
 DIST = os.path.join(ROOT, "dist")
+CACHE = os.path.join(ROOT, ".imgcache")
+IMAGE_WIDTHS = (800, 1280)
 PORT = 8770
 
 
@@ -128,28 +130,75 @@ def macro(m):
         return (f'<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/{esc(value)}" '
                 'title="YouTube 影片" loading="lazy" allowfullscreen></iframe></div>')
     if kind == "tool":
-        return f'<iframe class="tool" src="/tools/{esc(value)}.html" title="{esc(value)}" loading="lazy"></iframe>'
+        return (f'<div class="tool-box"><iframe class="tool" src="/tools/{esc(value)}.html" '
+                f'title="{esc(value)}" loading="lazy"></iframe></div>')
     # Google 試算表要有這組 sandbox 才顯示得出來，和 Google Sites 內嵌時用的相同
     return (f'<iframe class="embed" src="{esc(value)}" title="內嵌內容" sandbox="allow-scripts allow-popups '
             'allow-forms allow-same-origin allow-popups-to-escape-sandbox allow-downloads allow-modals '
             'allow-storage-access-by-user-activation"></iframe>')
 
 
-def render_md(body, used):
+def make_variant(job):
+    """壓成 WebP，做好的存在 .imgcache，下次產生網站就不用重做。"""
+    path, width, key = job
+    cached = os.path.join(CACHE, f"{key}-{width}.webp")
+    if not os.path.exists(cached):
+        with Image.open(path) as im:
+            im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
+            if im.width > width:
+                im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
+            part = f"{cached}.{os.getpid()}.tmp"
+            im.save(part, "WEBP", quality=80, method=4)
+        os.replace(part, cached)
+    return cached
+
+
+def build_variants(tmp):
+    """每張圖做手機用和電腦用兩種大小，回傳 {原圖網址: [(壓縮圖網址, 寬度), ...]}。"""
+    os.makedirs(CACHE, exist_ok=True)
+    jobs, out = [], {}
+    root = os.path.join(CONTENT, "images")
+    for folder, _, files in os.walk(root):
+        for name in files:
+            stem, ext = os.path.splitext(name)
+            if ext.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+                continue
+            path = os.path.join(folder, name)
+            rel = os.path.relpath(path, CONTENT).replace("\\", "/")
+            stat = os.stat(path)
+            key = hashlib.sha1(f"{rel}|{stat.st_size}|{stat.st_mtime_ns}".encode()).hexdigest()[:16]
+            with Image.open(path) as im:
+                full = im.width
+            widths = sorted({min(w, full) for w in IMAGE_WIDTHS})
+            url_dir = "/" + rel.rsplit("/", 1)[0]
+            out["/" + rel] = [(f"{url_dir}/{stem}-{w}.webp", w) for w in widths]
+            jobs += [((path, w, key), os.path.join(tmp, os.path.dirname(rel), f"{stem}-{w}.webp")) for w in widths]
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as pool:
+        for cached, (_, dest) in zip(pool.map(make_variant, [j[0] for j in jobs]), jobs):
+            shutil.copyfile(cached, dest)
+    return out
+
+
+def render_md(body, used, variants):
     body = re.sub(r"^\[\[(youtube|tool|embed):(.+?)\]\]\s*$", macro, body, flags=re.M)
     body = re.sub(r"(?<![=\\])==(?=\S)(.+?)(?<=\S)==(?!=)", r'<span class="hl">\1</span>', body)
     md = markdown.Markdown(extensions=["extra", "sane_lists", "nl2br"])
     out = md.convert(body)
 
     def img(m):
-        size = ""
-        if m.group(1).startswith("/"):
-            used.add(m.group(1))
-            path = os.path.join(CONTENT, m.group(1).lstrip("/"))
+        size, tag, src = "", m.group(0), m.group(1)
+        if src.startswith("/"):
+            used.add(src)
+            path = os.path.join(CONTENT, src.lstrip("/"))
             if os.path.exists(path):  # 先留好圖片的位置，載入時版面才不會跳動
                 with Image.open(path) as im:
                     size = f'width="{im.width}" height="{im.height}" '
-        return m.group(0).replace("<img ", f'<img {size}loading="lazy" decoding="async" ')
+            if src in variants:
+                # sizes 故意寫小一點：高解析手機才不會每張都抓電腦版大圖
+                srcset = ", ".join(f'{u.replace(" ", "%20")} {w}w' for u, w in variants[src])
+                size += (f'srcset="{srcset}" sizes="(max-width: 640px) 60vw, 860px" data-full="{src}" ')
+                tag = tag.replace(f'src="{src}"', f'src="{variants[src][-1][0]}"')
+        return tag.replace("<img ", f'<img {size}loading="lazy" decoding="async" ')
 
     return re.sub(r'<img [^>]*?src="([^"]+)"[^>]*>', img, out)
 
@@ -186,7 +235,8 @@ def with_base(text, base):
     """網站放在子路徑（例如 /joption-site）時，站內連結都要加上這段。"""
     text = text.replace("{{base}}", base)
     if base:
-        text = re.sub(r'\b(href|src)="/(?!/)', rf'\1="{base}/', text)
+        text = re.sub(r'\b(href|src|data-full)="/(?!/)', rf'\1="{base}/', text)
+        text = re.sub(r'\bsrcset="([^"]*)"', lambda m: 'srcset="' + re.sub(r"(^|, )/", rf"\1{base}/", m.group(1)) + '"', text)
         text = text.replace("--hero:url('/", f"--hero:url('{base}/")
     return text
 
@@ -235,6 +285,7 @@ def build(base=None):
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(tmp, folder))
     shutil.copytree(THEME, os.path.join(tmp, "assets"), ignore=shutil.ignore_patterns("page.html"))
+    variants = build_variants(tmp)
     tools = os.path.join(tmp, "tools")
     for name in os.listdir(tools) if os.path.isdir(tools) else []:
         path = os.path.join(tools, name)
@@ -246,7 +297,7 @@ def build(base=None):
     for p in pages:
         if p["redirect"]:
             continue
-        content = render_md(p["body"], used)
+        content = render_md(p["body"], used, variants)
         node = next((n for n in order if n["url"] == p["url"]), None)
         extra = ""
         kids = sorted((q for q in pages if q["parts"][:-1] == p["parts"] and q["parts"] and not q["hidden"] and not q["redirect"]),
@@ -267,7 +318,7 @@ def build(base=None):
             cards = "".join(card(c["title"], c["url"], c.get("summary", "")) for c in site["home_cards"])
             main = (f'<div class="home-body"><div class="prose">{content}</div>'
                     f'<div class="cards home-cards">{cards}</div></div>')
-            hero = (f'<section class="hero" style="--hero:url(\'{esc(site["hero_image"])}\')">'
+            hero = (f'<section class="hero" style="--hero:url(\'{esc(variants[site["hero_image"]][-1][0])}\')">'
                     f'<p>{esc(site["hero_kicker"])}</p><h1>{esc(site["hero_title"])}</h1></section>')
             body_class, full_title = "home", site["name"]
         else:
@@ -378,4 +429,7 @@ if __name__ == "__main__":
                 pass
 
         print(f"預覽網址：http://localhost:{PORT}/")
-        http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+        if "--open" in sys.argv:
+            webbrowser.open(f"http://localhost:{PORT}/")
+        server.serve_forever()

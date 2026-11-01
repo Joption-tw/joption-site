@@ -1,3 +1,4 @@
 dist/
+.imgcache/
 dist.tmp*/
 __pycache__/

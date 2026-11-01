@@ -7,22 +7,33 @@
     scrim.hidden = !open;
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
+  document.querySelector('.sidebar').addEventListener('click', function (e) {
+    if (e.target.closest('a')) setNav(false);
+  });
   btn.addEventListener('click', function () { setNav(!document.body.classList.contains('nav-open')); });
   scrim.addEventListener('click', function () { setNav(false); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setNav(false); });
+  // 只捲選單本身，不要動到頁面的捲動位置
   var current = document.querySelector('.sidebar [aria-current]');
-  if (current) current.scrollIntoView({ block: 'center' });
+  if (current) {
+    var side = document.querySelector('.sidebar');
+    side.scrollTop = current.getBoundingClientRect().top - side.getBoundingClientRect().top - side.clientHeight / 2;
+  }
 
-  // 點圖放大，截圖才看得清楚
+  // 點圖放大：手機上用原始大小顯示，可以左右滑動或兩指縮放
   var zoom = document.getElementById('zoom');
-  document.querySelectorAll('.prose img').forEach(function (img) {
-    if (img.closest('a')) return;
-    img.addEventListener('click', function () {
-      zoom.querySelector('img').src = img.src;
-      zoom.showModal();
-    });
+  var zoomImg = zoom.querySelector('img');
+  document.querySelector('.prose') && document.querySelector('.prose').addEventListener('click', function (e) {
+    var img = e.target;
+    if (img.tagName !== 'IMG' || img.closest('a')) return;
+    zoomImg.src = img.dataset.full || img.currentSrc || img.src;
+    zoom.showModal();
+    zoom.scrollTo(0, 0);
   });
-  zoom.addEventListener('click', function () { zoom.close(); });
+  zoom.addEventListener('click', function () {
+    zoom.close();
+    zoomImg.removeAttribute('src');
+  });
 
   // 內嵌工具的高度跟著內容走
   document.querySelectorAll('iframe.tool').forEach(function (frame) {
