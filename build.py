@@ -221,6 +221,8 @@ def render_md(body, used, variants):
         if src.startswith("/"):
             used.add(src)
             path = os.path.join(CONTENT, src.lstrip("/"))
+            if src.endswith(".svg"):  # 圖解是向量圖，寬度跟著版面走
+                return tag.replace("<img ", '<img class="fig" loading="lazy" decoding="async" ')
             if os.path.exists(path):  # 先留好圖片的位置，載入時版面才不會跳動
                 with Image.open(path) as im:
                     size = f'width="{im.width}" height="{im.height}" '

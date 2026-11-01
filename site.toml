@@ -16,7 +16,7 @@ hero_slogan = "不猜方向，賺時間價值"
 # 首頁卡片，照這裡的順序顯示，顏色會自動輪替。
 # icon 可用：coin seesaw book monitor sliders payoff person download chat clock
 [[home_cards]]
-title = "Joption 是什麼？"
+title = "雙賣平衡下單機是什麼？"
 url = "/選單/joption是什麼/"
 icon = "coin"
 
