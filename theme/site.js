@@ -53,6 +53,21 @@
     });
   });
 
+  // 互動績效網頁：照它手機版的做法，用 1040 寬排好再縮到框的寬度，版面才不會擠
+  document.querySelectorAll('.report-box').forEach(function (box) {
+    var frame = box.querySelector('iframe');
+    var h = Math.min(screen.width, screen.height) < 600 ? 1800 : 960; // 手機上兩頁排成一整頁，比較高
+    frame.style.width = '1040px';
+    frame.style.height = h + 'px';
+    function fit() {
+      var w = box.clientWidth;
+      frame.style.transform = 'scale(' + w / 1040 + ')';
+      box.style.height = h * w / 1040 + 'px';
+    }
+    fit();
+    window.addEventListener('resize', fit);
+  });
+
   // 全站搜尋：逐字比對，中文不需要斷詞
   var input = document.getElementById('q');
   var box = document.getElementById('results');

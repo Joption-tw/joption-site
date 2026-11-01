@@ -158,6 +158,9 @@ def macro(m):
     if kind == "tool":
         return (f'<div class="tool-box"><iframe class="tool" src="/tools/{esc(value)}.html" '
                 f'title="{esc(value)}" loading="lazy"></iframe></div>')
+    if kind == "report":
+        return (f'<div class="report-box"><iframe src="{esc(value)}" title="即時績效" loading="lazy" '
+                'allow="clipboard-write"></iframe></div>')
     # Google 試算表要有這組 sandbox 才顯示得出來，和 Google Sites 內嵌時用的相同
     return (f'<iframe class="embed" src="{esc(value)}" title="內嵌內容" sandbox="allow-scripts allow-popups '
             'allow-forms allow-same-origin allow-popups-to-escape-sandbox allow-downloads allow-modals '
@@ -206,7 +209,7 @@ def build_variants(tmp):
 
 
 def render_md(body, used, variants):
-    body = re.sub(r"^\[\[(youtube|tool|embed):(.+?)\]\]\s*$", macro, body, flags=re.M)
+    body = re.sub(r"^\[\[(youtube|tool|embed|report):(.+?)\]\]\s*$", macro, body, flags=re.M)
     body = re.sub(r"(?<![=\\])==(?=\S)(.+?)(?<=\S)==(?!=)", r'<span class="hl">\1</span>', body)
     md = markdown.Markdown(extensions=["extra", "sane_lists", "nl2br"])
     out = md.convert(body)

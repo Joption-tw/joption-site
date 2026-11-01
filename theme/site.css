@@ -152,6 +152,8 @@ a.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink);
 .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 2px solid var(--ink); border-radius: 10px; }
 iframe.tool, iframe.embed { display: block; width: 100%; min-height: 720px; margin: 12px 0 20px; border: 2px solid var(--ink); border-radius: 10px; }
 iframe.embed { height: 1157px; }
+.report-box { height: 960px; margin: 12px 0 20px; border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; background: #fff; }
+.report-box iframe { display: block; width: 100%; height: 100%; border: 0; transform-origin: 0 0; }
 .tool-box { position: relative; margin: 12px 0 20px; }
 .tool-box::before { content: "工具載入中，第一次開啟可能要等幾秒…"; position: absolute; top: 40px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 15px; }
 .tool-box iframe.tool { position: relative; margin: 0; background: transparent; }
