@@ -1,4 +1,6 @@
 dist/
+.preview/
+.preview.tmp*/
 .imgcache/
 dist.tmp*/
 __pycache__/

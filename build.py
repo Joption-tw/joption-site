@@ -1,7 +1,7 @@
 """把 content/ 裡的 Markdown 組成整個網站，輸出到 dist/。
 
     python build.py            產生網站
-    python build.py --serve    產生網站並開本機預覽，存檔後自動更新
+    python build.py --serve    開本機預覽（輸出到 .preview/），存檔後自動更新，也可以拖曳調整選單順序
 """
 import concurrent.futures, hashlib, html, http.server, json, os, re, shutil, sys, threading, time, tomllib, urllib.parse, webbrowser
 
@@ -12,6 +12,11 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 CONTENT = os.path.join(ROOT, "content")
 THEME = os.path.join(ROOT, "theme")
 DIST = os.path.join(ROOT, "dist")
+PREVIEW = os.path.join(ROOT, ".preview")
+ADMIN_JS = os.path.join(ROOT, "admin", "order.js")
+SORTABLE_URL = "https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"
+BUILD_LOCK = threading.Lock()
+WATCH = {"last": None}
 CACHE = os.path.join(ROOT, ".imgcache")
 IMAGE_WIDTHS = (800, 1280)
 PORT = 8770
@@ -46,6 +51,7 @@ def collect_pages():
                 parts = parts + [name[:-3]]
             url = "/" + "".join(p + "/" for p in parts)
             pages.append({
+                "file": os.path.relpath(os.path.join(folder, name), CONTENT).replace("\\", "/"),
                 "url": url,
                 "parts": parts,
                 "title": meta.get("title", parts[-1] if parts else "首頁"),
@@ -85,7 +91,7 @@ def build_tree(pages):
             nodes[key] = {"url": page["url"] if page else None, "page": page, "title": page["title"] if page else parts[-1],
                           "order": page["order"] if page else 100000, "children": [], "hidden": bool(page and page["hidden"])}
             if not page:  # 只有分類沒有頁面（例如「選單」）時，順序跟著第一個子頁
-                nodes[key]["order"] = min((p["order"] for p in pages if p["nav"][:len(parts)] == parts), default=100000)
+                nodes[key]["order"] = min((p["order"] for p in pages if p["nav"][:len(parts)] == parts and not p["hidden"]), default=100000)
             if len(parts) > 1:
                 node(parts[:-1])["children"].append(nodes[key])
             else:
@@ -121,7 +127,7 @@ def contains(n, url):
     return n["url"] == url or any(contains(k, url) for k in n["children"])
 
 
-def render_nav(items, current, depth=0):
+def render_nav(items, current, depth=0, preview=False):
     out = ['<ul>']
     for n in items:
         if n["hidden"]:
@@ -132,11 +138,14 @@ def render_nav(items, current, depth=0):
         inside = contains(n, current)
         label = (f'<a href="{esc(link)}"{" aria-current=page" if active else ""}>{esc(n["title"])}</a>'
                  if link else f'<span>{esc(n["title"])}</span>')
+        attr = ""
+        if preview:  # 只有本機預覽才帶這些資料，拖曳存檔時用
+            attr = f' data-file="{esc(n["page"]["file"])}"' if n["page"] else f' data-group="{esc(n["title"])}"'
         if kids:
-            out.append(f'<li><details{" open" if inside else ""}><summary>{label}</summary>'
-                       f'{render_nav(kids, current, depth + 1)}</details></li>')
+            out.append(f'<li{attr}><details{" open" if inside else ""}><summary>{label}</summary>'
+                       f'{render_nav(kids, current, depth + 1, preview)}</details></li>')
         else:
-            out.append(f'<li>{label}</li>')
+            out.append(f'<li{attr}>{label}</li>')
     out.append('</ul>')
     return "".join(out)
 
@@ -274,18 +283,18 @@ def with_base(text, base):
     return text
 
 
-def sync_dist(tmp):
-    """逐檔更新 dist/：Windows 上預覽伺服器開著時，整個資料夾不能直接換掉。"""
+def sync_dist(tmp, dist):
+    """逐檔更新輸出資料夾：Windows 上預覽伺服器開著時，整個資料夾不能直接換掉。"""
     fresh = set()
     for folder, _, files in os.walk(tmp):
         rel = os.path.relpath(folder, tmp)
-        os.makedirs(os.path.join(DIST, rel), exist_ok=True)
-        fresh.add(os.path.normpath(os.path.join(DIST, rel)))
+        os.makedirs(os.path.join(dist, rel), exist_ok=True)
+        fresh.add(os.path.normpath(os.path.join(dist, rel)))
         for name in files:
-            dest = os.path.join(DIST, rel, name)
+            dest = os.path.join(dist, rel, name)
             fresh.add(os.path.normpath(dest))
             shutil.copyfile(os.path.join(folder, name), dest)
-    for folder, dirs, files in os.walk(DIST, topdown=False):
+    for folder, dirs, files in os.walk(dist, topdown=False):
         for name in files:
             path = os.path.normpath(os.path.join(folder, name))
             if path not in fresh:
@@ -297,7 +306,83 @@ def sync_dist(tmp):
     shutil.rmtree(tmp, ignore_errors=True)
 
 
-def build(base=None):
+def write_meta(rel, **changes):
+    """只改頁面開頭的設定，內文一個字都不動。值是 None 就拿掉那一項。"""
+    path = os.path.join(CONTENT, rel)
+    raw = open(path, encoding="utf-8", newline="").read()
+    m = re.match(r"---\n(.*?)\n---\n", raw, re.S)
+    meta = dict(line.split(":", 1) for line in m.group(1).splitlines() if ":" in line)
+    meta = {k.strip(): v.strip() for k, v in meta.items()}
+    for key, value in changes.items():
+        if value is None:
+            meta.pop(key, None)
+        else:
+            meta[key] = value
+    text = "---\n" + "".join(f"{k}: {v}\n" for k, v in meta.items()) + "---\n" + raw[m.end():]
+    if text != raw:
+        part = f"{path}.{os.getpid()}.tmp"
+        open(part, "w", encoding="utf-8", newline="").write(text)
+        os.replace(part, path)
+
+
+def save_order(items):
+    """把拖曳後的選單寫回各頁的 order 和 menu。內容對不起來就整批不存。"""
+    pages = collect_pages()
+    top, nodes = build_tree(pages)
+    by_file = {p["file"]: p for p in pages}
+    by_url = {p["url"]: p for p in pages}
+    groups = {n["title"] for n in nodes.values() if not n["page"]}
+
+    def visible(rows):
+        for n in rows:
+            if not n["hidden"]:
+                if n["page"]:
+                    yield n["page"]["file"]
+                yield from visible(n["children"])
+
+    new_nav, seq = {}, []
+
+    def walk(rows, parent):
+        if not isinstance(rows, list):
+            raise ValueError("資料格式不對")
+        for row in rows:
+            file, group = row.get("file"), row.get("group")
+            if file in by_file:
+                path = parent + by_file[file]["parts"][-1:]
+                new_nav[file] = path
+                seq.append(file)
+            elif group in groups:
+                path = parent + [group]
+            else:
+                raise ValueError("選單裡有不認識的項目，請重新整理後再試")
+            walk(row.get("children", []), path)
+
+    walk(items, [])
+    if len(seq) != len(set(seq)) or set(seq) != set(visible(top)):
+        raise ValueError("選單和目前的檔案對不起來，請重新整理後再試")
+    paths = [tuple(v) for v in new_nav.values()]
+    if len(paths) != len(set(paths)):
+        raise ValueError("同一個分類裡有兩個同名的頁面")
+
+    changes = []
+    for i, file in enumerate(seq):
+        p = by_file[file]
+        folder = p["parts"][:-1]
+        owner = by_url.get("/" + "".join(x + "/" for x in folder)) if folder else None
+        default = (new_nav.get(owner["file"], owner["nav"]) if owner else folder)
+        wanted = new_nav[file][:-1]
+        menu = None if wanted == default else ("/".join(wanted) or "/")
+        changes.append((file, str((i + 1) * 10), menu))
+    for file, order, menu in changes:
+        write_meta(file, order=order, menu=menu)
+    return len(changes)
+
+
+def build(base=None, preview=False):
+    dist = PREVIEW if preview else DIST
+    admin = ""
+    if preview:
+        admin = f'<script src="{SORTABLE_URL}"></script><script>{open(ADMIN_JS, encoding="utf-8").read()}</script>'
     site = tomllib.load(open(os.path.join(ROOT, "site.toml"), "rb"))
     site_url = site["url"].rstrip("/")
     parsed = urllib.parse.urlparse(site_url)
@@ -314,7 +399,7 @@ def build(base=None):
     tree, nodes = build_tree(pages)
     order = list(flatten(tree))
     position = {n["url"]: i for i, n in enumerate(order)}
-    tmp = f"{DIST}.tmp{os.getpid()}"
+    tmp = f"{dist}.tmp{os.getpid()}"
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp)
 
@@ -377,7 +462,7 @@ def build(base=None):
                                 .replace("{{site_name}}", esc(site["name"]))
                                 .replace("{{logo}}", esc(site["logo"]))
                                 .replace("{{ga_id}}", esc(site.get("ga_id", "")))
-                                .replace("{{nav}}", render_nav(tree, p["url"]))
+                                .replace("{{nav}}", render_nav(tree, p["url"], preview=preview))
                                 .replace("{{hero}}", hero)
                                 .replace("{{body_class}}", body_class)
                                 .replace("{{main}}", main)
@@ -403,7 +488,7 @@ def build(base=None):
     for url, page_html in html_pages.items():
         dest = os.path.join(tmp, url.lstrip("/"), "index.html")
         os.makedirs(os.path.dirname(dest), exist_ok=True)
-        open(dest, "w", encoding="utf-8", newline="\n").write(with_base(page_html, base))
+        open(dest, "w", encoding="utf-8", newline="\n").write(with_base(page_html, base).replace("</body>", admin + "</body>"))
     for p in pages:
         if p["redirect"]:
             dest = os.path.join(tmp, p["url"].lstrip("/"), "index.html")
@@ -427,7 +512,7 @@ def build(base=None):
         open(os.path.join(tmp, "CNAME"), "w", encoding="utf-8").write(parsed.netloc + "\n")
     open(os.path.join(tmp, ".nojekyll"), "w").close()
 
-    sync_dist(tmp)
+    sync_dist(tmp, dist)
     print(f"完成：{len(html_pages)} 頁、{len(used)} 張圖")
     for line in problems:
         print("注意：" + line)
@@ -442,35 +527,70 @@ def snapshot():
                 path = os.path.join(folder, name)
                 state[path] = os.path.getmtime(path)
     state["site"] = os.path.getmtime(os.path.join(ROOT, "site.toml"))
+    state["admin"] = os.path.getmtime(ADMIN_JS)
     return state
 
 
 def watch():
-    last = snapshot()
+    WATCH["last"] = snapshot()
     while True:
         time.sleep(1)
-        now = snapshot()
-        if now != last:
-            last = now
-            try:
-                build("")
-            except Exception as e:
-                print("產生失敗：", e)
+        with BUILD_LOCK:
+            now = snapshot()
+            if now != WATCH["last"]:
+                WATCH["last"] = now
+                try:
+                    build("", preview=True)
+                except Exception as e:
+                    print("產生失敗：", e)
 
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     # 本機預覽一律從根目錄開，不用管正式網址的子路徑
-    problems = build("" if "--serve" in sys.argv else None)
-    if "--serve" in sys.argv:
+    serving = "--serve" in sys.argv
+    problems = build("" if serving else None, preview=serving)
+    if serving:
         threading.Thread(target=watch, daemon=True).start()
 
         class Handler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *a, **k):
-                super().__init__(*a, directory=DIST, **k)
+                super().__init__(*a, directory=PREVIEW, **k)
 
             def log_message(self, *a):
                 pass
+
+            def end_headers(self):
+                self.send_header("Cache-Control", "no-store")
+                super().end_headers()
+
+            def reply(self, status, **data):
+                body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self):
+                # 只接受這台電腦上、預覽頁面自己送來的存檔，其他網站不能改內容
+                host = self.headers.get("Host", "")
+                if (self.path != "/__order" or host not in (f"localhost:{PORT}", f"127.0.0.1:{PORT}")
+                        or self.headers.get("Origin") != f"http://{host}"
+                        or self.headers.get("Content-Type") != "application/json"):
+                    return self.reply(403, error="不接受這個請求")
+                size = int(self.headers.get("Content-Length") or 0)
+                if not 0 < size < 1_000_000:
+                    return self.reply(400, error="資料大小不對")
+                try:
+                    items = json.loads(self.rfile.read(size))
+                    with BUILD_LOCK:
+                        count = save_order(items)
+                        build("", preview=True)
+                        WATCH["last"] = snapshot()
+                except (ValueError, KeyError, TypeError, AttributeError) as e:
+                    return self.reply(400, error=str(e))
+                self.reply(200, ok=True, pages=count)
 
         print(f"預覽網址：http://localhost:{PORT}/")
         server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
