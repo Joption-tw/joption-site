@@ -56,11 +56,11 @@
   // 互動績效網頁：照它手機版的做法，用 1040 寬排好再縮到框的寬度，版面才不會擠
   document.querySelectorAll('.report-box').forEach(function (box) {
     var frame = box.querySelector('iframe');
-    var h = Math.min(screen.width, screen.height) < 600 ? 1800 : 1000; // 手機上兩頁排成一整頁，比較高
-    frame.style.height = h + 'px';
     function fit() {
       var w = box.clientWidth, scale = Math.min(w / 1040, 1); // 框夠寬就照原尺寸，不放大
+      var h = Math.min(screen.width, screen.height) < 600 ? 1800 : 1000; // 手機上兩頁排成一整頁，比較高
       frame.style.width = w / scale + 'px';
+      frame.style.height = h + 'px';
       frame.style.transform = 'scale(' + scale + ')';
       box.style.height = h * scale + 'px';
     }
