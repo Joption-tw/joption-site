@@ -217,9 +217,32 @@ def crumbs(page, by_url):
     return '<nav class="crumbs" aria-label="目前位置">' + " / ".join(bits) + "</nav>"
 
 
-def card(title, url, summary=""):
+ICONS = {
+    "coin": '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+    "seesaw": '<path d="M2 9l20-4"/><path d="M12 7l-4 13h8z"/><circle cx="4.5" cy="5" r="2"/><circle cx="19.5" cy="2.5" r="1.5"/>',
+    "book": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    "monitor": '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+    "sliders": '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    "payoff": '<path d="M2 20L8 7h8l6 13"/><path d="M2 14h20" stroke-dasharray="2 3"/>',
+    "person": '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+    "chat": '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    "clock": '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3L2 6M19 3l3 3"/>',
+}
+
+# 首頁底邊的雙賣損益圖：中間平台賺時間價值，兩邊是 Put、Call 的風險
+PAYOFF = ('<svg class="payoff" viewBox="0 0 1200 92" preserveAspectRatio="none" aria-hidden="true">'
+          '<path class="payoff-fill" d="M0 92L0 88L400 14H800L1200 88V92Z"/>'
+          '<path class="payoff-line" d="M0 88L400 14H800L1200 88"/></svg>'
+          '<span class="payoff-tag put" aria-hidden="true">Put</span>'
+          '<span class="payoff-tag theta" aria-hidden="true">時間價值</span>'
+          '<span class="payoff-tag call" aria-hidden="true">Call</span>')
+
+
+def card(title, url, summary="", icon=None):
     desc = f"<p>{esc(summary)}</p>" if summary else ""
-    return f'<a class="card" href="{esc(url)}"><h3>{esc(title)}</h3>{desc}</a>'
+    badge = f'<span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{ICONS[icon]}</svg></span>' if icon in ICONS else ""
+    return f'<a class="card" href="{esc(url)}">{badge}<div><h3>{esc(title)}</h3>{desc}</div></a>'
 
 
 def flatten(items):
@@ -237,7 +260,6 @@ def with_base(text, base):
     if base:
         text = re.sub(r'\b(href|src|data-full)="/(?!/)', rf'\1="{base}/', text)
         text = re.sub(r'\bsrcset="([^"]*)"', lambda m: 'srcset="' + re.sub(r"(^|, )/", rf"\1{base}/", m.group(1)) + '"', text)
-        text = text.replace("--hero:url('/", f"--hero:url('{base}/")
     return text
 
 
@@ -315,11 +337,17 @@ def build(base=None):
             pager += f'<a class="next" href="{esc(next_n["url"])}"><small>下一頁</small>{esc(next_n["title"])}</a>' if next_n else "<span></span>"
             pager += "</nav>"
         if p["layout"] == "home":
-            cards = "".join(card(c["title"], c["url"], c.get("summary", "")) for c in site["home_cards"])
+            cards = "".join(card(c["title"], c["url"], c.get("summary", ""), c.get("icon")) for c in site["home_cards"])
             main = (f'<div class="home-body"><div class="prose">{content}</div>'
                     f'<div class="cards home-cards">{cards}</div></div>')
-            hero = (f'<section class="hero" style="--hero:url(\'{esc(variants[site["hero_image"]][-1][0])}\')">'
-                    f'<p>{esc(site["hero_kicker"])}</p><h1>{esc(site["hero_title"])}</h1></section>')
+            art = variants[site["hero_art"]]
+            srcset = ", ".join(f"{u} {w}w" for u, w in art)
+            hero = (f'<section class="hero"><div class="hero-inner"><div class="hero-copy">'
+                    f'<p class="hero-kicker">{esc(site["hero_kicker"])}</p>'
+                    f'<h1><b>{esc(site["hero_brand"])}</b>{esc(site["hero_title"])}</h1>'
+                    f'<p class="hero-slogan">{esc(site["hero_slogan"])}</p></div>'
+                    f'<div class="hero-art"><img src="{art[0][0]}" srcset="{srcset}" sizes="(max-width: 640px) 72vw, 460px" '
+                    f'width="1120" height="1120" alt="" fetchpriority="high"></div></div>{PAYOFF}</section>')
             body_class, full_title = "home", site["name"]
         else:
             main = (f'{crumbs(p, by_url)}<article class="prose"><h1>{esc(p["title"])}</h1>{content}</article>'

@@ -7,46 +7,58 @@ url = "https://joption-tw.github.io/joption-site"
 ga_id = "G-QLVS2TRSRG"
 
 logo = "/images/site/logo.png"
-hero_image = "/images/site/hero.jpg"
+hero_art = "/images/site/joption-art.png"
 hero_kicker = "選擇權量化交易程式"
-hero_title = "JOPTION 雙賣平衡下單機"
+hero_brand = "JOPTION"
+hero_title = "雙賣平衡下單機"
+hero_slogan = "不猜方向，賺時間價值"
 
-# 首頁卡片，照這裡的順序顯示
+# 首頁卡片，照這裡的順序顯示，顏色會自動輪替。
+# icon 可用：coin seesaw book monitor sliders payoff person download chat clock
 [[home_cards]]
 title = "Joption 是什麼？"
 url = "/選單/joption是什麼/"
+icon = "coin"
 
 [[home_cards]]
 title = "Joption 策略核心"
 url = "/選單/joption策略核心/"
+icon = "seesaw"
 
 [[home_cards]]
 title = "操作手冊"
 url = "/選單/全策略說明/"
+icon = "book"
 
 [[home_cards]]
 title = "設備要求"
 url = "/選單/硬體設備建議/"
+icon = "monitor"
 
 [[home_cards]]
 title = "當沖策略參數介紹"
 url = "/選單/參數設定介紹與建議/"
+icon = "sliders"
 
 [[home_cards]]
 title = "當沖策略說明"
 url = "/faq/當沖策略說明/"
+icon = "payoff"
 
 [[home_cards]]
 title = "歐大自我介紹"
 url = "/選單/歐大的自我介紹/"
+icon = "person"
 
 [[home_cards]]
 title = "訂閱及下載點"
 url = "/選單/下載及安裝說明/"
+icon = "download"
 
 [[home_cards]]
 title = "Q & A"
 url = "/faq/"
+icon = "chat"
 
 # 每一頁底部的連結
 [[footer_links]]
