@@ -3,7 +3,7 @@
     python build.py            產生網站
     python build.py --serve    產生網站並開本機預覽，存檔後自動更新
 """
-import html, http.server, json, os, re, shutil, sys, threading, time, tomllib
+import html, http.server, json, os, re, shutil, sys, threading, time, tomllib, urllib.parse
 
 import markdown
 from PIL import Image
@@ -182,6 +182,15 @@ def flatten(items):
         yield from flatten(n["children"])
 
 
+def with_base(text, base):
+    """網站放在子路徑（例如 /joption-site）時，站內連結都要加上這段。"""
+    text = text.replace("{{base}}", base)
+    if base:
+        text = re.sub(r'\b(href|src)="/(?!/)', rf'\1="{base}/', text)
+        text = text.replace("--hero:url('/", f"--hero:url('{base}/")
+    return text
+
+
 def sync_dist(tmp):
     """逐檔更新 dist/：Windows 上預覽伺服器開著時，整個資料夾不能直接換掉。"""
     fresh = set()
@@ -205,8 +214,12 @@ def sync_dist(tmp):
     shutil.rmtree(tmp, ignore_errors=True)
 
 
-def build():
+def build(base=None):
     site = tomllib.load(open(os.path.join(ROOT, "site.toml"), "rb"))
+    site_url = site["url"].rstrip("/")
+    parsed = urllib.parse.urlparse(site_url)
+    if base is None:
+        base = parsed.path
     template = open(os.path.join(THEME, "page.html"), encoding="utf-8").read()
     pages = collect_pages()
     by_url = {p["url"]: p for p in pages}
@@ -222,6 +235,11 @@ def build():
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(tmp, folder))
     shutil.copytree(THEME, os.path.join(tmp, "assets"), ignore=shutil.ignore_patterns("page.html"))
+    tools = os.path.join(tmp, "tools")
+    for name in os.listdir(tools) if os.path.isdir(tools) else []:
+        path = os.path.join(tools, name)
+        code = open(path, encoding="utf-8").read()
+        open(path, "w", encoding="utf-8", newline="\n").write(with_base(code, base))
 
     foot = "".join(f'<a href="{esc(l["url"])}" rel="noopener">{esc(l["title"])}</a>' for l in site["footer_links"])
     search, used, html_pages = [], set(), {}
@@ -260,7 +278,7 @@ def build():
         html_pages[p["url"]] = (template
                                 .replace("{{title}}", esc(full_title))
                                 .replace("{{description}}", esc(p["summary"] or site["description"]))
-                                .replace("{{canonical}}", esc(site["domain"] + p["url"]))
+                                .replace("{{canonical}}", esc(site_url + p["url"]))
                                 .replace("{{site_name}}", esc(site["name"]))
                                 .replace("{{logo}}", esc(site["logo"]))
                                 .replace("{{ga_id}}", esc(site.get("ga_id", "")))
@@ -271,7 +289,7 @@ def build():
                                 .replace("{{footer_links}}", foot))
         if not p["hidden"]:
             text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html.unescape(content))).strip()
-            search.append({"t": p["title"], "u": p["url"], "x": text})
+            search.append({"t": p["title"], "u": base + p["url"], "x": text})
 
     # 檢查站內連結與圖片，打錯檔名時才不會默默壞掉
     problems = []
@@ -290,27 +308,28 @@ def build():
     for url, page_html in html_pages.items():
         dest = os.path.join(tmp, url.lstrip("/"), "index.html")
         os.makedirs(os.path.dirname(dest), exist_ok=True)
-        open(dest, "w", encoding="utf-8", newline="\n").write(page_html)
+        open(dest, "w", encoding="utf-8", newline="\n").write(with_base(page_html, base))
     for p in pages:
         if p["redirect"]:
             dest = os.path.join(tmp, p["url"].lstrip("/"), "index.html")
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             open(dest, "w", encoding="utf-8", newline="\n").write(
-                f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={esc(p["redirect"])}">'
-                f'<link rel="canonical" href="{esc(site["domain"] + p["redirect"])}"><title>{esc(p["title"])}</title>')
+                f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={esc(base + p["redirect"])}">'
+                f'<link rel="canonical" href="{esc(site_url + p["redirect"])}"><title>{esc(p["title"])}</title>')
 
     json.dump(search, open(os.path.join(tmp, "search.json"), "w", encoding="utf-8"), ensure_ascii=False)
-    notfound = template.replace("{{title}}", "找不到頁面").replace("{{description}}", "").replace("{{canonical}}", esc(site["domain"] + "/")) \
+    notfound = template.replace("{{title}}", "找不到頁面").replace("{{description}}", "").replace("{{canonical}}", esc(site_url + "/")) \
         .replace("{{site_name}}", esc(site["name"])).replace("{{logo}}", esc(site["logo"])) \
         .replace("{{ga_id}}", "").replace("{{nav}}", render_nav(tree, "")).replace("{{hero}}", "").replace("{{body_class}}", "doc") \
         .replace("{{main}}", '<article class="prose"><h1>找不到這個頁面</h1><p>網址可能已經更動，請從左側選單或搜尋找找看，或<a href="/">回首頁</a>。</p></article>') \
         .replace("{{footer_links}}", foot)
-    open(os.path.join(tmp, "404.html"), "w", encoding="utf-8", newline="\n").write(notfound)
-    urls = "".join(f"<url><loc>{esc(site['domain'] + n['url'])}</loc></url>" for n in order)
+    open(os.path.join(tmp, "404.html"), "w", encoding="utf-8", newline="\n").write(with_base(notfound, base))
+    urls = "".join(f"<url><loc>{esc(site_url + n['url'])}</loc></url>" for n in order)
     open(os.path.join(tmp, "sitemap.xml"), "w", encoding="utf-8").write(
         f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
-    open(os.path.join(tmp, "robots.txt"), "w", encoding="utf-8").write(f"User-agent: *\nAllow: /\nSitemap: {site['domain']}/sitemap.xml\n")
-    open(os.path.join(tmp, "CNAME"), "w", encoding="utf-8").write(site["domain"].split("//")[1] + "\n")
+    open(os.path.join(tmp, "robots.txt"), "w", encoding="utf-8").write(f"User-agent: *\nAllow: /\nSitemap: {site_url}/sitemap.xml\n")
+    if not parsed.netloc.endswith(".github.io"):
+        open(os.path.join(tmp, "CNAME"), "w", encoding="utf-8").write(parsed.netloc + "\n")
     open(os.path.join(tmp, ".nojekyll"), "w").close()
 
     sync_dist(tmp)
@@ -339,14 +358,15 @@ def watch():
         if now != last:
             last = now
             try:
-                build()
+                build("")
             except Exception as e:
                 print("產生失敗：", e)
 
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    problems = build()
+    # 本機預覽一律從根目錄開，不用管正式網址的子路徑
+    problems = build("" if "--serve" in sys.argv else None)
     if "--serve" in sys.argv:
         threading.Thread(target=watch, daemon=True).start()
 

@@ -48,7 +48,7 @@
   var data = null;
   function load() {
     if (data) return Promise.resolve(data);
-    return fetch('/search.json').then(function (r) { return r.json(); }).then(function (d) { data = d; return d; });
+    return fetch((document.documentElement.dataset.base || '') + '/search.json').then(function (r) { return r.json(); }).then(function (d) { data = d; return d; });
   }
   function clean(s) {
     var div = document.createElement('div');

@@ -2,7 +2,8 @@
 
 name = "JOPTION 量化交易程式"
 description = "JOPTION 雙賣平衡下單機：操作手冊、策略說明、參數介紹與常見問題。"
-domain = "https://www.joption.com.tw"
+# 網站的正式網址。之後綁 www.joption.com.tw 時，只要把這一行改成 "https://www.joption.com.tw"
+url = "https://joption-tw.github.io/joption-site"
 ga_id = "G-QLVS2TRSRG"
 
 logo = "/images/site/logo.png"
