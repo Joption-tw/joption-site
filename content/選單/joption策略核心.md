@@ -1,114 +1,285 @@
 ---
 title: Joption策略核心
-summary: 中性雙賣：Call 與 Put 永遠一樣重。
-order: 320
+order: 350
 ---
 
-**Joption = 雙賣策略 + 平衡策略**
+**Joption=雙賣策略+平衡策略**
 
-- **策略核心：** 自動化雙賣，加上即時平衡調整
-- **獲利來源：** 時間價值衰減、區間震盪、系統化風險控制
-- **優勢：** 克服貪婪、恐慌、遲疑等人性弱點，追求穩定、可持續的收益曲線
+[**當沖策略說明**](/faq/當沖策略說明)
 
-## 策略口訣
+**策略核心**：自動化雙賣＋即時平衡調整。
 
-**中性雙賣：Call 與 Put 永遠一樣重**
+**獲利來源**：時間價值衰減 + 區間震盪 + 系統化風險控制。
 
-![翹翹板的三個狀態：一樣重、行情下跌 Put 變重、自動調整回到平衡](/images/策略口訣/seesaw.png)
+**優勢**：避免人性弱點（貪婪、恐慌、遲疑），追求穩定、可持續的收益曲線。
 
-| 狀態 | Call 點數 | Put 點數 | 比值 | 說明 |
-|---|---|---|---|---|
-| ① 平衡 | 1,800 | 1,740 | 50.8% | 一樣重，中性不偏 |
-| ② 行情下跌 | 1,200 | 2,240 | ==34.9%== | Put 變重，部位失衡 |
-| ③ 自動調整 | 1,800 | 1,680 | 51.7% | 回補 5 口 Put、加賣 10 口 Call，再次一樣重 |
+![](/images/joption策略核心/01.png)
 
-行情上漲也一樣，只是方向相反：
+---
 
-1. **開始：** Call 3 顆、Put 3 顆，一樣多、一樣重。
-2. **行情上漲：** Call 變大顆變重、Put 變小顆變輕，偏 Call 下沉。
-3. **自動調整①：** Call 減少 1 顆，還是偏重。
-4. **自動調整②：** Put 加 2 顆（原本大小），再次一樣重。
-
-<a id="h.tob03vly3afn"></a>
-
-## 策略原則
-
-1. **核心策略：雙賣平衡**
-    - 同時賣出 Call 與 Put（選擇權賣方），建立中立的部位。
-    - 系統自動計算 Call、Put 部位的價值比，持續監控是否失衡。
-    - 失衡超過設定範圍就自動調整，避免一邊風險過大。
-2. **風險即時監控**
-    - 系統自動偵測保證金、履約價分布與 Delta 風險。
-    - 一旦出現過度集中或單邊行情，就觸發清倉或偏移調整。
-3. **自動化調整邏輯**
-    - **比值調整：** Put、Call 市值比過度傾斜時，補單或平倉修正。
-    - **多口清倉：** 部位超過設定口數或保證金風險提升時，自動分批出場。
-    - **時間與價差控制：** 接近結算日或行情急劇變動時，自動收斂部位。
-
-<a id="h.fzr9xra1ydlm"></a>
-
-## 獲利來源
-
-1. **時間價值衰減（Theta 收益）：** 選擇權會隨著時間流逝不斷失去價值，賣方收權利金，同時持續控管風險。
-2. **維持部位平衡：** 人工交易容易因情緒延遲而失衡，自動調整可以維持「小賺大穩」的結構。
-3. **波動率收斂效應：** 在無趨勢或區間震盪的行情，賣方比較有利。
-4. **系統化風險控制：** 不靠預測方向，靠控風險、穩保證金。
-
-## 雙賣策略的基本圖形
-
-| 組合 | 策略 | 適合的預期 |
-|---|---|---|
-| **兩口單：** Sell Call + Sell Put | 賣出跨式 | 狹幅整理 |
-| | 賣出勒式 | 區間整理 |
-| **四口單：** Sell Call + Sell Put + Buy Call + Buy Put | 蝶式價差 | 狹幅整理，同時控制上下檔風險 |
-| | 禿鷹式價差 | 區間整理，同時控制上下檔風險 |
-
-![四種雙賣策略的損益圖：賣出跨式、賣出勒式、蝶式價差、禿鷹式價差](/images/joption策略核心/02.png)
-
-## 損益圖怎麼看
-
-| 位置 | Delta | Call、Put 點數 | 狀態 |
-|---|---|---|---|
-| 山頂（最高點） | 等於 0 | Call = Put | 相對安全 |
-| 左側（指數下跌） | 遠大於 0 | Call 遠小於 Put | ==不安全== |
-| 右側（指數上漲） | 遠小於 0 | Call 遠大於 Put | ==不安全== |
-
-![損益圖：山頂最安全，兩側損益兩平點外開始虧損](/images/joption策略核心/03.png)
-
-## 用賭場來比喻：當莊家
+---
 
 <div class="cols" markdown="1">
 
 <div markdown="1">
 
-![選擇權賭場的莊家插圖](/images/joption策略核心/04.png)
+<a id="h.tob03vly3afn"></a>
+
+### 一、Joption 的策略原則
+
+1. **核心策略：雙賣平衡**
+    - 透過同時賣出 Call 與 Put（選擇權賣方），建立「中立偏套利」的部位。
+    - 系統自動計算 Call/Put 部位的價值比，並持續監控是否失衡。
+    - 若失衡超過設定範圍（如 ±5%），則自動進行調整，避免一邊部位過度暴露風險。
+2. **風險即時監控**
+    - 系統自動偵測部位保證金、履約價分布與 Delta 風險。
+    - 一旦出現過度集中或單邊行情，會觸發「部位清倉」或「偏移調整」。
+3. **自動化調整邏輯**
+    - **比值調整**：當 Put/Call 的市值比過度傾斜，系統會補單或平倉修正。
+    - **多口清倉**：當部位超過設定口數或保證金風險提升時，自動分批出場。
+    - **時間與價差控制**：接近結算日或行情急劇變動時，自動收斂部位，避免暴雷。
 
 </div>
 
 <div markdown="1">
 
-**不預測行情，只設區間收租**
+<a id="h.fzr9xra1ydlm"></a>
 
-- 莊家不猜漲跌，只規劃一個震盪區間，收兩邊的權利金。
-- 就像賭場不管你押紅押黑，只統計機率、設限額。
+### 二、Joption 的獲利來源
 
-**同時賣出 Call 和 Put，收雙邊權利金**
-
-- 賣出一組價外的 Call 和 Put。
-- 每一邊都可能歸零，莊家有機會兩邊都賺。
-- 波動小時兩邊都收下，就像莊家抽成。
+1. **時間價值衰減（Theta 收益）**
+    - 選擇權在時間流逝下會不斷失去價值。
+    - Joption 把握這個「時間換錢」的特性，透過賣方收取權利金並持續控管風險。
+2. **維持部位平衡**
+    - 傳統人工交易容易因情緒延遲導致失衡，造成一邊暴增虧損。
+    - Joption 透過自動化調整，維持長期「小賺大穩」的結構，避免一次性大賠。
+3. **波動率收斂效應**
+    - 在無趨勢或區間震盪行情中，賣方策略獲利機率最高。
+    - Joption 把握這種「行情無方向但時間在走」的市場特性，持續累積權利金收益。
+4. **系統化風險控制**
+    - 不靠預測方向，而靠「控風險、穩保證金」來確保獲利持續性。
+    - 系統可避免爆倉或一次大虧的狀況，使整體策略具備長期正期望值。
 
 </div>
 
 </div>
 
-**重新開局，再收一次**
+---
 
-- 與其一次賭大，不如每一口都像賭桌重新開局。
-- 利用台指選擇權流動性高的特性，由自動化系統日內快速調倉。
+![](/images/joption策略核心/02.png)
 
-**動態調整，維持莊家優勢**
+---
 
-- 市場波動大時，拉遠履約價。
-- 市場波動小時，增加持倉。
-- 搭配 Delta 中性、Gamma 調整，以及 IV 高低的選擇。
+![](/images/joption策略核心/03.png)
+
+---
+
+![](/images/joption策略核心/04.png)
+
+---
+
+![](/images/joption策略核心/05.png)
+
+---
+
+![](/images/joption策略核心/06.png)
+
+**Joption的優勢**
+
+![](/images/joption策略核心/07.png)
+
+---
+
+![](/images/joption策略核心/08.png)
+
+---
+
+![](/images/joption策略核心/09.png)
+
+---
+
+![](/images/joption策略核心/10.png)
+
+---
+
+![](/images/joption策略核心/11.png)
+
+---
+
+![](/images/joption策略核心/12.png)
+
+---
+
+![](/images/joption策略核心/13.png)
+
+---
+
+![](/images/joption策略核心/14.png)
+
+---
+
+![](/images/joption策略核心/15.png)
+
+---
+
+**雙賣+平衡策略的實單績效**
+
+[![](/images/joption策略核心/16.png)](https://docs.google.com/spreadsheets/d/1AsY4_MJipaMp_cNLpyeXTpFGnG0FD4vWJu-SDRdvtME/edit?gid=1908704661#gid=1908704661)
+
+---
+
+[![](/images/joption策略核心/17.png)](https://docs.google.com/spreadsheets/d/1AsY4_MJipaMp_cNLpyeXTpFGnG0FD4vWJu-SDRdvtME/edit?gid=1908704661#gid=1908704661)
+
+[![](/images/joption策略核心/18.png)](https://docs.google.com/spreadsheets/d/1AsY4_MJipaMp_cNLpyeXTpFGnG0FD4vWJu-SDRdvtME/edit?gid=1908704661#gid=1908704661)
+
+[![](/images/joption策略核心/19.png)](https://docs.google.com/spreadsheets/d/1AsY4_MJipaMp_cNLpyeXTpFGnG0FD4vWJu-SDRdvtME/edit?gid=1908704661#gid=1908704661)
+
+[![](/images/joption策略核心/20.png)](https://docs.google.com/spreadsheets/d/1AsY4_MJipaMp_cNLpyeXTpFGnG0FD4vWJu-SDRdvtME/edit?gid=1908704661#gid=1908704661)
+
+![](/images/joption策略核心/21.png)
+
+**即時績效，持續更新中, 點擊即可進入即時績效畫面** [**點擊**](https://docs.google.com/spreadsheets/d/1AsY4_MJipaMp_cNLpyeXTpFGnG0FD4vWJu-SDRdvtME/edit?gid=1908704661#gid=1908704661)
+
+[即時績效，持續更新中, 點擊即可進入即時績效畫面](https://docs.google.com/spreadsheets/d/1AsY4_MJipaMp_cNLpyeXTpFGnG0FD4vWJu-SDRdvtME/edit?gid=1908704661#gid=1908704661){.btn}
+
+---
+
+**榮譽榜**
+
+**2023年人機對決個人賽總冠軍賽_ 第三名**
+
+<div class="cols" markdown="1">
+
+<div markdown="1">
+
+![](/images/joption策略核心/22.png)
+
+![](/images/joption策略核心/23.png)
+
+</div>
+
+<div markdown="1">
+
+![](/images/joption策略核心/24.png)
+
+</div>
+
+</div>
+
+<div class="cols" markdown="1">
+
+<div markdown="1">
+
+**排名第三、成績穩定** → 戰績不是偶然，而是長期有效策略。
+
+**無大幅回測** → 充分展現 Joption 系統化控風險的優勢。
+
+**報酬曲線平穩向上** → 避免暴雷，展現複利的力量。
+
+</div>
+
+<div markdown="1">
+
+[2023年人機對決參考網站](https://activity.capitalfutures.com.tw/AC230630/Profile/c6db2651-108e-4141-9036-280ce5bfb50a){.btn}
+
+[群益贏家名人堂參考網站](https://activity.capitalfutures.com.tw/Winner/Ranking){.btn}
+
+</div>
+
+</div>
+
+---
+
+**群益贏家名人堂大聯盟23名**
+
+![](/images/joption策略核心/25.png)
+
+---
+
+**2025年人機對決**
+
+**個人賽_ 第二名**
+
+**團體賽_ 冠 軍**
+
+<div class="cols" markdown="1">
+
+[![](/images/joption策略核心/26.png)](https://activity.capitalfutures.com.tw/AC250915/Rank/ScoreRank?Gaoup=all&Finals=1)
+
+![](/images/joption策略核心/27.png)
+
+</div>
+
+<div class="cols" markdown="1">
+
+![](/images/joption策略核心/28.png)
+
+![](/images/joption策略核心/29.png)
+
+</div>
+
+<div class="cols" markdown="1">
+
+![](/images/joption策略核心/30.png)
+
+![](/images/joption策略核心/31.png)
+
+</div>
+
+---
+
+**2025年 上海期貨日報 全球賽重量組 第七名**
+
+<div class="cols" markdown="1">
+
+![](/images/joption策略核心/32.png)
+
+![](/images/joption策略核心/33.jpg)
+
+</div>
+
+<div class="cols" markdown="1">
+
+![](/images/joption策略核心/34.jpg)
+
+![](/images/joption策略核心/35.jpg)
+
+</div>
+
+---
+
+**Joption是正規軍，擁有多項專利證書**
+
+<div class="cols" markdown="1">
+
+![](/images/joption策略核心/36.jpg)
+
+![](/images/joption策略核心/37.jpg)
+
+![](/images/joption策略核心/38.jpg)
+
+</div>
+
+<div class="cols" markdown="1">
+
+<div markdown="1">
+
+![](/images/joption策略核心/39.jpg)
+
+</div>
+
+<div markdown="1">
+
+![](/images/joption策略核心/40.jpg)
+
+</div>
+
+<div markdown="1">
+
+更多專利申請中
+
+</div>
+
+</div>
+
+---
