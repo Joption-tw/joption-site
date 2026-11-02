@@ -53,7 +53,7 @@ button, input, select { font: inherit; color: inherit; }
 
 .market-band { background: var(--paper); border-bottom: 3px solid var(--ink); }
 .market-band .wrap { padding-block: 14px 16px; }
-.market { display: grid; grid-template-columns: 1.25fr 1.25fr 1fr 1.25fr; background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); overflow: hidden; }
+.market { display: grid; grid-template-columns: 1.15fr 1.7fr 1.15fr; background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); overflow: hidden; }
 .mk { min-width: 0; padding: 10px 16px 12px; border-left: 2.5px solid var(--ink); }
 .mk:first-child { border-left: 0; background: var(--kraft); }
 .mk.up { background: var(--up-bg); } .mk.down { background: var(--down-bg); }
@@ -64,6 +64,8 @@ button, input, select { font: inherit; color: inherit; }
 .mk-row { display: flex; align-items: center; gap: 10px; }
 .mk-big { font-family: var(--display); font-size: clamp(30px, 3.5vw, 46px); line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .mk-big em { font-style: normal; font-size: .55em; margin-left: 4px; }
+.mk-chg { font-family: var(--display); font-size: clamp(22px, 2.4vw, 32px); line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mk-chg em { font-style: normal; font-size: .6em; margin-left: 4px; }
 .mk-sub { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .mk svg { flex: 1 1 60px; min-width: 40px; max-width: 150px; height: 46px; }
 .up-t { color: var(--up); } .down-t { color: var(--down); }
@@ -224,8 +226,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
 @media (max-width: 900px) {
   .market { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .mk:nth-child(odd) { border-left: 0; }
-  .mk:nth-child(n+3) { border-top: 2.5px solid var(--ink); }
+  .mk:nth-child(2) { grid-column: 1 / -1; order: -1; border-left: 0; }  /* 台指期一格最寬，窄螢幕自己一排放最上面 */
+  .mk:nth-child(1), .mk:nth-child(3) { border-top: 2.5px solid var(--ink); }
+  .mk-row { flex-wrap: wrap; }
 }
 @media (max-width: 640px) {
   .podium { grid-template-columns: minmax(0, 1fr); gap: 10px; }
@@ -477,12 +480,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + ' ' + daysText(last.days) + '</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (last ? int(last.value) : '–') + '</span>' + spark(tvPts, null, 'var(--coin-deep)') + '</div>' +
         '<div class="mk-sub">' + tvChangeChip(first) + (last && last.avg ? '比平均' + (last.diff >= 0 ? '高 ' : '低 ') + Math.abs(last.diff).toFixed(1) + '%' : '') + lives.slice(1).map(c => '，' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
-      '<div class="mk"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
-        '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' + (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
-        '<div class="mk-sub">' + (q ? '期交所 ' + esc(q.at) : '讀取中') + '</div></div>' +
-      '<div class="mk ' + dir + '"><h3>漲跌</h3>' +
-        '<div class="mk-row"><span class="mk-big ' + (dir ? dir + '-t' : '') + '">' + (diff === null ? '–' : change(diff, lastDigits(diff))) + (diff === null ? '' : '<em>(' + change(diff / fut.ref * 100, 2) + '%)</em>') + '</span></div>' +
-        '<div class="mk-sub">' + (fut && fut.ref ? '參考價 ' + int(fut.ref) : '') + '</div></div>' +
+      // 台指期和漲跌合成一格
+      '<div class="mk ' + dir + '"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
+        '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' +
+          (diff === null ? '' : '<span class="mk-chg ' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '<em>(' + change(diff / fut.ref * 100, 2) + '%)</em></span>') +
+          (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
+        '<div class="mk-sub">' + (fut && fut.ref ? '參考價 ' + int(fut.ref) + '，' : '') + (q ? '期交所 ' + esc(q.at) : '讀取中') + '</div></div>' +
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
         '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
         '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span>，昨收 ' + vix.ref.toFixed(2)) + '</div></div>';
@@ -790,7 +793,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const far = s => vixOf && isFar(s.name, vixOf, cur);
     if (avg) Object.assign(avg, avgOnAxis(list.filter(s => !s.main && !s.isAvg && !/W/i.test(s.name) && !far(s))));
     const nc = nearColors(h);
-    list.forEach(s => { if (nc[s.name]) { s.color = nc[s.name]; s.w = 2.4; } });
+    list.forEach(s => { if (nc[s.name]) { s.color = nc[s.name]; s.w = 1.5; s.op = .7; } });  // 看得出是哪期就好，不搶這期的線
     return list.filter(s => s.main || s.isAvg || !far(s));
   }
   function avgOnAxis(past) {
@@ -863,7 +866,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         pen = true;
       });
       const dim = state.eraseOn && s.name !== state.eraseName;
-      svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="' + s.w + '"' + (dim ? ' opacity=".3"' : '') + ' stroke-linejoin="round" stroke-linecap="round"/>';
+      svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="' + s.w + '"' + (dim ? ' opacity=".3"' : s.op ? ' opacity="' + s.op + '"' : '') + ' stroke-linejoin="round" stroke-linecap="round"/>';
     });
     svg += '</g>';
     // 現在的位置
