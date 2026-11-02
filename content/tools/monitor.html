@@ -100,6 +100,7 @@ th.col-drag { background: var(--sky) !important; cursor: grabbing; }
 th.col-left { box-shadow: inset 3px 0 0 var(--indigo); }
 th.col-right { box-shadow: inset -3px 0 0 var(--indigo); }
 .chip.hold0 { background: var(--kraft); margin-left: 0; }
+.seg button[hidden] { display: none; }
 tr.drop-above td { box-shadow: inset 0 3px 0 var(--indigo); }
 tr.drop-below td { box-shadow: inset 0 -3px 0 var(--indigo); }
 .drag-hint { margin-left: 10px; color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -278,7 +279,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       <h2 id="h-cmp">誰賺得比較多</h2>
       <div class="tools">
         <div class="seg" id="mode" role="group" aria-label="比較期間">
-          <button data-v="session">每盤</button><button data-v="week">每週</button><button data-v="now">目前累積</button>
+          <button data-v="session">每盤</button><button data-v="week">每週</button><button data-v="now" id="mode-now" hidden>目前累積</button>
         </div>
         <select class="btn" id="period" aria-label="選擇哪一期"></select>
         <div class="seg" id="metric" role="group" aria-label="比較單位">
@@ -319,7 +320,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     { k: 'updated', t: '更新時間', f: when, cls2: 'when', text: true },
   ];
   const MORE_COLS = [
-    { k: 'start', t: '起始資產', f: int },
+    { k: 'start', t: '起始資產', f: int, history: true },
     { k: 'margin', t: '保證金餘額', f: int },
     { k: 'points', t: '總點數', f: int },
     { k: 'callSell', t: 'Call 賣方', f: int, cls: 'call-h' },
@@ -464,7 +465,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   function renderTable(d) {
     // 欄位照自己拖的順序，新欄位或沒拖過的接在原本的位置
     const cols = (state.all ? COLS.concat(MORE_COLS) : COLS)
-      .filter(c => !c.sessionOnly || state.view === 'session')
+      .filter(c => (!c.sessionOnly || state.view === 'session') && (!c.history || state.canHistory))
       .map((c, i) => [c, i]).sort((a, b) => (colRank(a[0].k) - colRank(b[0].k)) || (a[1] - b[1])).map(x => x[0]);
     const newest = Math.max.apply(null, d.members.map(m => ms(m.updated)).concat(0));
     const q = state.q.trim().toLowerCase();
@@ -731,7 +732,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   function periodsOf(d) { return state.mode === 'week' ? d.weeks : d.sessions; }
 
   function renderCompare(d) {
-    if (!state.mode) state.mode = d.sessions.length ? 'session' : 'now';
+    // 目前累積只給開通看累積的人
+    $('mode-now').hidden = !state.canHistory;
+    if (!state.mode || (state.mode === 'now' && !state.canHistory)) state.mode = d.sessions.length || !state.canHistory ? 'session' : 'now';
     document.querySelectorAll('#mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.mode));
     document.querySelectorAll('#metric button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.metric));
     const sel = $('period');
@@ -891,6 +894,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (state.gateDemo) return;
       if (state.data) return;  // 預覽資料不會變，不用每分鐘重畫，也才不會打斷橡皮擦
       state.canErase = true;
+      state.canHistory = true;
       state.data = window.MON_SNAPSHOT; state.lastOk = Date.now(); showGate(false); renderAll(); return;
     }
     if (!DATA_URL) { $('live-text').textContent = '還沒接上試算表'; $('live-dot').classList.add('off'); return; }
@@ -908,6 +912,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (!res.ok) { setToken(null); state.data = null; showGate(true); return; }
       state.data = res.data;
       state.canErase = !!res.canErase;
+      state.canHistory = !!res.canHistory;
       if (!state.canErase) state.eraseOn = false;
       state.lastOk = Date.now();
       showGate(false);
