@@ -136,6 +136,23 @@ td.when { color: var(--muted); font-size: 13px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 4px; }
 .lg { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 99px; cursor: pointer; font-size: 13px; font-weight: 700; }
 .lg i { width: 16px; height: 0; border-top: 3px solid var(--c); border-radius: 2px; }
+.lg small { color: var(--muted); font-size: 12px; }
+.lg.more { background: var(--kraft); white-space: nowrap; }
+#vix-near { white-space: nowrap; }
+#vix-near[aria-pressed="false"] { opacity: 1; }
+#vix-near[aria-pressed="true"] { background: var(--coin); }
+.lg.far { opacity: .35; }
+.vix-now { align-self: center; margin-left: 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.vix-now b { color: var(--indigo); font-size: 15px; }
+.legend-panel { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; padding: 8px 0 2px; border-top: 2px dashed var(--line); }
+.legend-panel.near { border-top-style: solid; }
+.tv-chg { display: inline-block; margin-right: 6px; padding: 0 8px; border-radius: 99px; font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; }
+.chg-up { background: var(--up); color: var(--white); }
+.chg-flat { background: var(--line); color: var(--ink); }
+.chg-d1 { background: #cdeedd; color: #075a36; }
+.chg-d2 { background: #3fa874; color: var(--white); }
+.chg-d3 { background: #075a36; color: var(--white); }
+.tip small { margin-left: 8px; color: var(--muted); font-size: 12px; }
 .lg i.dash { border-top-style: dashed; }
 .lg[aria-pressed="false"] { opacity: .45; }
 .lg:hover { background: var(--sky); }
@@ -269,7 +286,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     <div class="head">
       <h2 id="h-tv">時間價值走勢</h2>
       <div class="tools"><button class="btn" id="erase-toggle" aria-pressed="false" hidden>橡皮擦</button></div>
-      <p>橫軸是結算前最後 10 盤：週三結算從上週三夜盤到週三早盤，週五結算從上週五夜盤到週五早盤，每盤一樣寬，週末不留空，週三週五的合約按盤對齊。上面的按鈕可以只看某一盤，下面的拉桿可以左右拖、拉兩邊縮放，VIX 圖跟著一起動。靛藍粗線是這期週三，黃粗線是這期週五，黑線是已結算合約的優化平均，細線是過去幾期。按標籤可以開關。</p>
+      <p>橫軸是結算前最後 10 盤：週三結算從上週三夜盤到週三早盤，週五結算從上週五夜盤到週五早盤，每盤一樣寬，週末不留空，週三週五的合約按盤對齊。上面的按鈕可以只看某一盤，下面的拉桿可以左右拖、拉兩邊縮放，VIX 圖跟著一起動。靛藍粗線是這期週三，黃粗線是這期週五，黑線是已結算合約的優化平均，細線是過去幾期，收在「過去 N 期」裡，展開可以一條一條開關，標籤後面是那一期走到同一盤時的 VIX。按「VIX 相近」只留 VIX 跟現在差 3 點以內的過去合約，優化平均也只用它們算。滑鼠移到圖上，每條線後面也會標當時的 VIX。</p>
     </div>
     <div class="erase-bar" id="erase-bar" hidden></div>
     <div class="card">
@@ -413,6 +430,26 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(digits);
   }
 
+  // 這期時間價值這一盤變多少：跟上一盤最後一筆比，前面沒資料就跟這一盤第一筆比
+  function tvChangeChip(c) {
+    if (!c || !c.last) return '';
+    const slots = slotsOf(c.settle), at = posOf(slots, SETTLE_MIN - c.last.days * 1440);
+    if (at === null) return '';
+    const i = slotOf(at);
+    let base = null, first = null;
+    c.days.forEach((d, k) => {
+      const v = c.data[k], p = posOf(slots, SETTLE_MIN - d * 1440);
+      if (v === null || p === null) return;
+      if (p < i) base = v;
+      else if (first === null && slotOf(p) === i) first = v;
+    });
+    const from = base !== null ? base : first;
+    if (!from) return '';
+    const diff = c.last.value - from, pct = diff / from * 100;
+    const tone = diff > 0 ? 'chg-up' : diff === 0 ? 'chg-flat' : pct > -5 ? 'chg-d1' : pct > -15 ? 'chg-d2' : 'chg-d3';
+    return '<span class="tv-chg ' + tone + '" title="跟上一盤最後一筆比">' + slotName(slots[i], i) + ' ' + (diff > 0 ? '+' : diff < 0 ? '−' : '') + int(Math.abs(diff)) + '（' + (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toFixed(1) + '%）</span>';
+  }
+
   function renderMarket(d) {
     const lives = d.history ? d.history.contracts.filter(c => c.live && c.last).sort((a, b) => a.last.days - b.last.days) : [];  // 快結算的放前面
     const first = lives[0] || null, last = first ? first.last : null;
@@ -428,7 +465,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     $('market').innerHTML =
       '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + ' ' + daysText(last.days) + '</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (last ? int(last.value) : '–') + '</span>' + spark(tvPts, null, 'var(--coin-deep)') + '</div>' +
-        '<div class="mk-sub">' + (last && last.avg ? '比平均' + (last.diff >= 0 ? '高 ' : '低 ') + Math.abs(last.diff).toFixed(1) + '%' : '') + lives.slice(1).map(c => '，' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
+        '<div class="mk-sub">' + tvChangeChip(first) + (last && last.avg ? '比平均' + (last.diff >= 0 ? '高 ' : '低 ') + Math.abs(last.diff).toFixed(1) + '%' : '') + lives.slice(1).map(c => '，' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
       '<div class="mk"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' + (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
         '<div class="mk-sub">' + (q ? '期交所 ' + esc(q.at) : '讀取中') + '</div></div>' +
@@ -552,8 +589,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const past = [], live = [];
     h.contracts.forEach(c => {
       const friday = c.settle === '五';
-      if (c.live) live.push({ name: c.name, settle: c.settle, days: c.days, data: c.data, color: friday ? 'var(--coin-deep)' : 'var(--indigo)', w: 3.2, main: true, gap: 4, live: true, last: c.last });
-      else past.push({ name: c.name, settle: c.settle, days: c.days, data: c.data, color: friday ? 'var(--fri-past)' : 'var(--past)', w: 1.3 });
+      if (c.live) live.push({ name: c.name, settle: c.settle, date: c.date, days: c.days, data: c.data, color: friday ? 'var(--coin-deep)' : 'var(--indigo)', w: 3.2, main: true, gap: 4, live: true, last: c.last });
+      else past.push({ name: c.name, settle: c.settle, date: c.date, days: c.days, data: c.data, color: friday ? 'var(--fri-past)' : 'var(--past)', w: 1.3 });
     });
     return past.reverse().concat([{ name: SERIES_AVG, days: h.avg.days, data: h.avg.data, color: 'var(--ink)', w: 2.2, main: true, isAvg: true }], live);
   }
@@ -568,8 +605,87 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   function renderLegend(h) {
     const list = seriesList(h).slice().reverse();
-    $('legend').innerHTML = list.map(s =>
-      '<button class="lg" data-s="' + esc(s.name) + '" aria-pressed="' + (!state.off[s.name]) + '"><i style="--c:' + s.color + '"></i>' + esc(s.name) + '</button>').join('');
+    const main = list.filter(s => s.main), past = list.filter(s => !s.main);
+    const vixOf = pastVix(h), cur = currentVix(), nc = nearColors(h);
+    const chip = (s, vix) => {
+      if (nc[s.name]) s = Object.assign({}, s, { color: nc[s.name] });
+      const far = state.vixNear && !s.main && isFar(s.name, vixOf, cur);
+      return '<button class="lg' + (far ? ' far' : '') + '" data-s="' + esc(s.name) + '" aria-pressed="' + (!state.off[s.name]) + '"' + (far ? ' title="VIX 跟現在差超過 ' + VIX_NEAR + ' 點，先藏起來"' : '') + '><i style="--c:' + s.color + '"></i>' + esc(s.name) +
+        (vix === undefined ? '' : '<small>' + (vix === null ? 'VIX –' : 'VIX ' + vix.toFixed(1)) + '</small>') + '</button>';
+    };
+    const near = past.filter(s => !isFar(s.name, vixOf, cur)).length;
+    let html = main.map(s => chip(s)).join('') +
+      '<button class="lg more" id="legend-more" aria-expanded="' + !!state.legendOpen + '">過去 ' + past.length + ' 期 ' + (state.legendOpen ? '▴' : '▾') + '</button>' +
+      '<button class="lg" id="vix-near" aria-pressed="' + !!state.vixNear + '" title="只留同一個盤位時 VIX 跟現在差 ' + VIX_NEAR + ' 點以內的過去合約，優化平均也只用它們算">VIX 相近（' + near + ' 期）</button>' +
+      (cur === null ? '' : '<span class="vix-now">現在 VIX <b>' + cur.toFixed(2) + '</b></span>');
+    if (state.vixNear) html += '<div class="legend-panel near">' + (near ? '<span class="vix-now">VIX 相近的過去合約</span>' + past.filter(s => nc[s.name]).map(s => chip(s, vixOf[s.name])).join('') : '<span class="vix-now">沒有 VIX 跟現在差 ' + VIX_NEAR + ' 點以內的過去合約</span>') + '</div>';
+    if (state.legendOpen) html += '<div class="legend-panel">' + past.map(s => chip(s, vixOf[s.name])).join('') + '<button class="lg" id="past-all">全開</button><button class="lg" id="past-none">全關</button></div>';
+    $('legend').innerHTML = html;
+  }
+
+  // 合約結算日：試算表記的合約有日期；歷史分頁的 2610TX1 這種用名字推，TXn、Wn 是當月第 n 個週三，TXO（表上也寫成 TX0）是月選，第 3 個週三
+  function settleDateOf(s) {
+    if (s.date) return dateOf(s.date);
+    const m = String(s.name).match(/^(?:20)?(\d{2})(\d{2})(?:TX|W)([0-9O])$/i);
+    if (!m) return null;
+    const y = 2000 + +m[1], mon = +m[2] - 1, n = /[0O]/i.test(m[3]) ? 3 : +m[3];
+    const out = new Date(y, mon, 1 + (3 - new Date(y, mon, 1).getDay() + 7) % 7 + (n - 1) * 7);
+    return out.getMonth() === mon ? out : null;
+  }
+  let vixCache = null;
+  function vixPoints() {
+    const v = state.data && state.data.vix;
+    if (!v) return [];
+    if (vixCache && vixCache.v === v) return vixCache.pts;
+    const pts = [];
+    (v.daily || []).concat(v.ticks || []).forEach(r => {
+      const t = String(r[0]).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+      if (t) pts.push([new Date(+t[1], t[2] - 1, +t[3], t[4] ? +t[4] : 13, t[4] ? +t[5] : 45).getTime(), +r[1]]);
+    });
+    pts.sort((a, b) => a[0] - b[0]);
+    vixCache = { v: v, pts: pts };
+    return pts;
+  }
+  // 那個時間點的 VIX：取當時已經有的最後一筆，夜盤就是前一個日盤；期交所的檔案偶爾缺幾天，隔超過 6 天才算沒有
+  function vixAt(ms) {
+    const pts = vixPoints();
+    let lo = 0, hi = pts.length - 1, best = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (pts[mid][0] <= ms) { best = mid; lo = mid + 1; } else hi = mid - 1; }
+    return best >= 0 && ms - pts[best][0] < 6 * 86400000 ? pts[best][1] : null;
+  }
+  function seriesVix(s, pos) {
+    const d = settleDateOf(s);
+    return d && pos !== null ? vixAt(d.getTime() + timeAt(slotsOf(s.settle), pos) * 60000) : null;
+  }
+  function currentVix() {
+    const v = state.data && state.data.vix;
+    return (state.quote && state.quote.vix && state.quote.vix.last) || (v && v.live ? v.live.v : null);
+  }
+  // 現在走到第幾盤；不在盤中就用這期最後一筆的位置
+  function nowPos(h) {
+    const ref = refOf(h), p = posOf(ref.slots, minOf(ref, Date.now()));
+    if (p !== null) return p;
+    const c = h.contracts.find(x => x.name === ref.name);
+    return c && c.last ? posOf(ref.slots, SETTLE_MIN - c.last.days * 1440) : null;
+  }
+  // VIX 相近：過去合約走到同一個盤位時的 VIX，跟現在差 3 點以內
+  const VIX_NEAR = 3;
+  function pastVix(h) {
+    const p = nowPos(h), out = {};
+    seriesList(h).filter(s => !s.main).forEach(s => { out[s.name] = seriesVix(s, p); });
+    return out;
+  }
+  const NEAR_COLORS = ['#e0457b', '#12a0a0', '#8a4fd8', '#f07c2a', '#2f9e44', '#9c6b30'];
+  function nearColors(h) {
+    if (!state.vixNear) return {};
+    const vixOf = pastVix(h), cur = currentVix(), out = {};
+    Object.keys(vixOf).filter(n => !isFar(n, vixOf, cur)).sort((a, b) => Math.abs(vixOf[a] - cur) - Math.abs(vixOf[b] - cur))
+      .forEach((n, i) => { out[n] = NEAR_COLORS[i % NEAR_COLORS.length]; });
+    return out;
+  }
+  function isFar(name, vixOf, cur) {
+    const v = vixOf[name];
+    return v === null || v === undefined || cur === null || Math.abs(v - cur) > VIX_NEAR;
   }
 
   // 橫軸：結算前最後 10 盤，每盤一樣寬，週末不留空。時間都用「離結算日 0 點幾分鐘」，結算在 13:30
@@ -645,8 +761,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   function onAxis(h) {
     const list = seriesList(h).map(s => (s.isAvg ? Object.assign({}, s) : Object.assign({}, s, { pos: s.days.map(d => posOf(slotsOf(s.settle), SETTLE_MIN - d * 1440)) })));
     const avg = list.find(s => s.isAvg);
-    if (avg) Object.assign(avg, avgOnAxis(list.filter(s => !s.main && !s.isAvg && !/W/i.test(s.name))));
-    return list;
+    const vixOf = state.vixNear ? pastVix(h) : null, cur = currentVix();
+    const far = s => vixOf && isFar(s.name, vixOf, cur);
+    if (avg) Object.assign(avg, avgOnAxis(list.filter(s => !s.main && !s.isAvg && !/W/i.test(s.name) && !far(s))));
+    const nc = nearColors(h);
+    list.forEach(s => { if (nc[s.name]) { s.color = nc[s.name]; s.w = 2.4; } });
+    return list.filter(s => s.main || s.isAvg || !far(s));
   }
   function avgOnAxis(past) {
     const N = SLOTS * 20, bins = [];
@@ -744,7 +864,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       cross.setAttribute('x1', x(p)); cross.setAttribute('x2', x(p)); cross.setAttribute('visibility', 'visible');
       const vals = list.map(s => ({ s: s, v: valueNear(s, p, tol) })).filter(o => o.v !== null && o.v !== undefined);
       const main = vals.filter(o => o.s.main), rest = vals.filter(o => !o.s.main).sort((p1, p2) => p2.v - p1.v);
-      tip.innerHTML = '<b>' + whenText(ref, p) + '</b>' + (vals.length ? main.reverse().concat(rest).map(o => '<div><span style="--c:' + o.s.color + '"><i></i>' + esc(o.s.name) + '</span><span>' + int(o.v) + '</span></div>').join('') : '<div>這段沒有資料</div>');
+      const vixText = o => { const vx = o.s.isAvg ? null : seriesVix(o.s, p); return vx === null ? '' : '<small>VIX ' + vx.toFixed(1) + '</small>'; };
+      tip.innerHTML = '<b>' + whenText(ref, p) + '</b>' + (vals.length ? main.reverse().concat(rest).map(o => '<div><span style="--c:' + o.s.color + '"><i></i>' + esc(o.s.name) + '</span><span>' + int(o.v) + vixText(o) + '</span></div>').join('') : '<div>這段沒有資料</div>');
       tip.hidden = false;
       const px = x(p) / W * r.width;
       tip.style.left = (px > r.width * .55 ? px - tip.offsetWidth - 2 : px + 22) + 'px';
@@ -1352,8 +1473,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   $('legend').addEventListener('click', e => {
     const b = e.target.closest('.lg');
     if (!b) return;
-    state.off[b.dataset.s] = !state.off[b.dataset.s];
-    renderLegend(state.data.history); renderChart(state.data.history);
+    const h = state.data.history;
+    if (b.id === 'legend-more') state.legendOpen = !state.legendOpen;
+    else if (b.id === 'vix-near') state.vixNear = !state.vixNear;
+    else if (b.id === 'past-all' || b.id === 'past-none') seriesList(h).filter(s => !s.main).forEach(s => { state.off[s.name] = b.id === 'past-none'; });
+    else state.off[b.dataset.s] = !state.off[b.dataset.s];
+    renderLegend(h); renderChart(h);
   });
   $('mode').addEventListener('click', e => {
     const b = e.target.closest('button');
