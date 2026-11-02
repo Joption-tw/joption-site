@@ -91,6 +91,14 @@ th:first-child { background: var(--kraft); z-index: 3; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: #eefbfe; }
 td.name { font-weight: 700; }
+.grip { display: inline-block; margin: 0 6px 0 -4px; padding: 2px 4px; border-radius: 6px; color: var(--muted); letter-spacing: -2px; line-height: 1; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.grip:hover { background: var(--coin); color: var(--ink); }
+tr.dragging td { background: var(--sky) !important; }
+tr.dragging .grip { cursor: grabbing; }
+tr.drop-above td { box-shadow: inset 0 3px 0 var(--indigo); }
+tr.drop-below td { box-shadow: inset 0 -3px 0 var(--indigo); }
+.drag-hint { margin-left: 10px; color: var(--muted); font-size: 12px; font-weight: 700; }
+th button#order-reset { margin-left: 8px; color: var(--indigo); text-decoration: underline; }
 td.rank { color: var(--muted); }
 td.strong { font-weight: 900; }
 td.when { color: var(--muted); font-size: 13px; }
@@ -177,6 +185,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   .topbar { position: static; }
   td.name { white-space: normal; min-width: 104px; max-width: 124px; overflow-wrap: anywhere; line-height: 1.3; }
   td.name .chip { margin: 2px 4px 0 0; }
+  .drag-hint .txt { display: none; }
+  .grip { padding: 6px 6px; }
   .search { width: 130px; }
   h2 { font-size: 22px; }
 }
@@ -227,6 +237,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         </div>
         <button class="btn" id="toggle-all" aria-pressed="false">顯示全部欄位</button>
       </div>
+      <p>順序可以自己排：按住暱稱左邊的 ⋮⋮ 上下拖曳，放開就記住了，下次打開還是你排的順序。每個人排自己的，不會影響別人。</p>
     </div>
     <div class="card"><div class="scroll" id="table"></div></div>
     <p class="foot-note" id="table-note"></p>
@@ -317,6 +328,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   const state = { data: null, sort: 'pct', asc: false, all: false, q: '', mode: null, metric: 'pct', period: null, showAllRanks: false, off: {}, hover: null, lastOk: null };
   const $ = id => document.getElementById(id);
+  const CUSTOM_KEY = 'joption-monitor-custom-order';
+  state.custom = [];
+  try {
+    const savedOrder = JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]');
+    if (Array.isArray(savedOrder)) state.custom = savedOrder.filter(n => typeof n === 'string');
+  } catch (e) { /* 存不了就照試算表的順序 */ }
   const VIEW_KEY = 'joption-monitor-view';
   state.view = 'session';
   try {
@@ -427,9 +444,13 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const period = periods.length ? periods[periods.length - 1] : null;
     const byName = {};
     if (period) period.rows.forEach(r => { byName[r.name] = r; });
+    // 排過的人照自己排的順序，新加入的同學接在後面，照試算表的順序
+    const rank = {};
+    state.custom.forEach((name, i) => { rank[name] = i; });
     let rows = d.members.map((m, i) => {
       const r = byName[m.name];
-      return Object.assign({ order: i }, m, { pct: r ? r.pct : null, pnl: r ? r.pnl : null, flag: r ? r.flag : false });
+      const order = m.name in rank ? rank[m.name] : state.custom.length + i;
+      return Object.assign({}, m, { order: order, pct: r ? r.pct : null, pnl: r ? r.pnl : null, flag: r ? r.flag : false });
     });
     if (q) rows = rows.filter(m => m.name.toLowerCase().indexOf(q) >= 0);
     const col = cols.concat(MORE_COLS).find(c => c.k === state.sort);
@@ -441,14 +462,15 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (y === null || y === undefined) return -1;
       return (x - y) * (state.asc ? 1 : -1);
     });
-    const th = (k, t, cls) => {
+    const th = (k, t, cls, extra) => {
       const on = state.sort === k;
-      return '<th scope="col" class="' + (cls || '') + '"' + (on ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on && k !== 'order' ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button></th>';
+      return '<th scope="col" class="' + (cls || '') + '"' + (on && k !== 'order' ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on && k !== 'order' ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button>' + (extra || '') + '</th>';
     };
+    const nameExtra = '<span class="drag-hint"><span class="txt">按住 ⋮⋮ 拖曳排序</span>' + (state.custom.length ? '<button id="order-reset" type="button">還原</button>' : '') + '</span>';
     const prefix = state.view === 'session' ? '當盤' : '當週';
     const title = c => (c.k === 'pct' ? prefix + '獲利率' : c.k === 'pnl' ? prefix + '金額' : c.t);
     document.querySelectorAll('#pnl-view button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.view));
-    let html = '<table><thead><tr>' + th('order', '社群暱稱') + cols.map(c => th(c.k, title(c), c.cls)).join('') + '</tr></thead><tbody>';
+    let html = '<table><thead><tr>' + th('order', '社群暱稱', '', nameExtra) + cols.map(c => th(c.k, title(c), c.cls)).join('') + '</tr></thead><tbody>';
     if (!rows.length) html += '<tr><td colspan="' + (cols.length + 1) + '" class="empty">找不到這個暱稱</td></tr>';
     rows.forEach(m => {
       const age = newest - ms(m.updated);
@@ -456,7 +478,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (m.flag) chip += '<span class="chip warn" title="單期漲跌超過 8%，可能有出入金">待確認</span>';
       if (holding(m)) chip += '<span class="chip hold">有部位</span>';
       if (m.updated && age > 6 * 3600e3) chip += '<span class="chip">' + (age > 2 * 86400e3 ? Math.floor(age / 86400e3) + ' 天沒更新' : Math.floor(age / 3600e3) + ' 小時沒更新') + '</span>';
-      html += '<tr><td class="name" title="' + esc(m.name) + '">' + esc(m.name) + chip + '</td>' + cols.map(c => {
+      const grip = q ? '' : '<span class="grip" role="button" tabindex="0" title="按住上下拖曳，調整順序" aria-label="調整 ' + esc(m.name) + ' 的順序，可按上下鍵移動">⋮⋮</span>';
+      html += '<tr data-name="' + esc(m.name) + '"><td class="name" title="' + esc(m.name) + '">' + grip + esc(m.name) + chip + '</td>' + cols.map(c => {
         const cl = [c.color ? tone(m[c.k]) : '', c.strong ? 'strong' : '', c.cls2 || ''].join(' ').trim();
         return '<td' + (cl ? ' class="' + cl + '"' : '') + '>' + c.f(m[c.k]) + '</td>';
       }).join('') + '</tr>';
@@ -466,7 +489,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const viewNote = !period ? '這一期還沒有資料，同學的資料一更新就會出現。'
       : state.view === 'session' ? '當盤：' + period.label + '，現在的資產減前一盤收盤前 5 分鐘。'
       : '當週：' + period.label + '，算到現在。' + (d.weeks.length === 1 ? '這週從 ' + started + ' 才開始記錄，還不是完整一週。' : '');
-    $('table-note').textContent = viewNote + '共 ' + d.members.length + ' 位，人數跟著試算表自動增減。點欄位名稱排序，點社群暱稱回到固定順序，你的選擇下次打開還在。';
+    $('table-note').textContent = viewNote + '共 ' + d.members.length + ' 位，人數跟著試算表自動增減。點欄位名稱排序，點社群暱稱回到你排的順序（沒排過就是試算表的順序）。';
   }
 
   // 走勢圖
@@ -789,7 +812,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const d = state.data;
     if (!d) return;
     renderMarket(d);
-    renderTable(d);
+    if (!state.dragging) renderTable(d);  // 拖到一半不要被每分鐘的更新打斷
     $('erase-toggle').hidden = !state.canErase;
     if (d.history) {
       renderLegend(d.history); renderChart(d.history); renderEraseBar();
@@ -898,12 +921,87 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     e.currentTarget.textContent = state.all ? '只看重點欄位' : '顯示全部欄位';
     renderTable(state.data);
   });
+  // 拖曳排序：排的是現在看到的順序，放開後就切到「自己排的順序」，所以用獲利率排著也能接著調
+  function saveSort() {
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({ sort: state.sort, asc: state.asc })); } catch (x) { /* 這次有效就好 */ }
+  }
+  function commitOrder(names) {
+    state.custom = names;
+    state.sort = 'order';
+    state.asc = false;
+    saveSort();
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(names)); } catch (x) { /* 這次有效就好 */ }
+    renderTable(state.data);
+  }
+  $('table').addEventListener('pointerdown', e => {
+    const grip = e.target.closest('.grip');
+    if (!grip || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault();
+    const tr = grip.closest('tr');
+    const trs = [...tr.parentNode.children];
+    const from = trs.indexOf(tr);
+    let to = from;
+    state.dragging = true;
+    tr.classList.add('dragging');
+    grip.setPointerCapture(e.pointerId);
+    const clear = () => trs.forEach(r => r.classList.remove('drop-above', 'drop-below'));
+    const move = ev => {
+      if (ev.clientY < 80) window.scrollBy(0, -14);
+      else if (ev.clientY > innerHeight - 60) window.scrollBy(0, 14);
+      to = trs.length - 1;
+      for (let i = 0; i < trs.length; i++) {
+        const r = trs[i].getBoundingClientRect();
+        if (ev.clientY < r.top + r.height / 2) { to = i > from ? i - 1 : i; break; }
+      }
+      clear();
+      if (to !== from) trs[to].classList.add(to < from ? 'drop-above' : 'drop-below');
+    };
+    const end = ev => {
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', end);
+      grip.removeEventListener('pointercancel', end);
+      state.dragging = false;
+      clear();
+      tr.classList.remove('dragging');
+      if (ev.type === 'pointerup' && to !== from) {
+        const names = trs.map(r => r.dataset.name);
+        names.splice(to, 0, names.splice(from, 1)[0]);
+        commitOrder(names);
+      } else if (state.data) renderTable(state.data);
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', end);
+    grip.addEventListener('pointercancel', end);
+  });
+  $('table').addEventListener('keydown', e => {
+    const grip = e.target.closest('.grip');
+    if (!grip || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    const tr = grip.closest('tr');
+    const names = [...tr.parentNode.children].map(r => r.dataset.name);
+    const from = names.indexOf(tr.dataset.name), to = from + (e.key === 'ArrowUp' ? -1 : 1);
+    if (to < 0 || to >= names.length) return;
+    names.splice(to, 0, names.splice(from, 1)[0]);
+    const name = tr.dataset.name;
+    commitOrder(names);
+    const again = [...$('table').querySelectorAll('tbody tr')].find(r => r.dataset.name === name);
+    if (again) again.querySelector('.grip').focus();
+  });
   $('table').addEventListener('click', e => {
+    if (e.target.id === 'order-reset') {
+      state.custom = [];
+      state.sort = 'order';
+      state.asc = false;
+      saveSort();
+      try { localStorage.removeItem(CUSTOM_KEY); } catch (x) { /* 這次有效就好 */ }
+      renderTable(state.data);
+      return;
+    }
     const b = e.target.closest('button[data-sort]');
     if (!b) return;
     const k = b.dataset.sort;
     if (state.sort === k) state.asc = !state.asc; else { state.sort = k; state.asc = false; }
-    try { localStorage.setItem(SORT_KEY, JSON.stringify({ sort: state.sort, asc: state.asc })); } catch (x) { /* 這次有效就好 */ }
+    saveSort();
     renderTable(state.data);
   });
   $('erase-toggle').addEventListener('click', e => {
