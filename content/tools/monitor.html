@@ -456,7 +456,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   }
   function posCell(c, m) {
     if (c.show === 'entry') return m.pos.carry ? '<span class="chip hold0">前盤留倉</span>' : m.pos.in || '–';
-    return m.pos.open ? '<span class="chip warn">留倉</span>' : m.pos.out || '–';
+    if (m.pos.open) return state.data.positions.live ? '<span class="chip hold0">持倉中</span>' : '<span class="chip warn">留倉</span>';
+    return m.pos.out || '–';
   }
 
   function renderTable(d) {
