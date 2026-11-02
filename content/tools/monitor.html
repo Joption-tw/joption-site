@@ -88,6 +88,7 @@ select.btn { padding-right: 6px; max-width: 170px; }
 
 .card { background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); margin-right: 4px; }
 .scroll { overflow-x: auto; border-radius: 11px; }
+#table thead { position: relative; z-index: 3; }
 table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 th, td { padding: 8px 11px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
 th { position: sticky; top: 0; background: var(--kraft); border-bottom: 2.5px solid var(--ink); font-size: 13px; font-weight: 900; z-index: 2; }
@@ -533,6 +534,15 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return m.pos.out || '–';
   }
 
+  // 表頭凍結在頂列下面：表格要能左右捲，CSS 的 sticky 只會貼在表格框裡，所以捲動時直接把表頭往下移
+  function pinHead() {
+    const thead = document.querySelector('#table thead');
+    if (!thead) return;
+    const box = $('table').getBoundingClientRect(), top = Math.max(0, document.querySelector('.topbar').getBoundingClientRect().bottom);  // 手機的頂列不跟著捲，就貼在最上面
+    const shift = Math.max(0, Math.min(top - box.top, box.height - thead.offsetHeight * 2));
+    thead.style.transform = shift > 0 ? 'translateY(' + Math.round(shift) + 'px)' : '';
+  }
+
   function renderTable(d) {
     // 欄位照自己拖的順序，新欄位或沒拖過的接在原本的位置
     const cols = (state.all ? COLS.concat(MORE_COLS) : COLS)
@@ -590,6 +600,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       }).join('') + '</tr>';
     });
     $('table').innerHTML = html + '</tbody></table>';
+    pinHead();
     const started = d.sessions.length ? d.sessions[0].label.slice(0, 5) : '';
     const viewNote = !period ? '這一期還沒有資料，同學的資料一更新就會出現。'
       : state.view === 'session' ? '當盤：' + period.label + '，現在的資產減上一盤的基準（早盤看夜盤 04:55，夜盤看早盤收盤後 13:46）。'
@@ -1454,6 +1465,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (await eraseSend({ action: 'unerase' })) { state.erasedCount = Math.max(0, state.erasedCount - 1); renderEraseBar(); }
     }
   });
+  let pinFrame = 0;
+  const pinLater = () => { if (!pinFrame) pinFrame = requestAnimationFrame(() => { pinFrame = 0; pinHead(); }); };
+  window.addEventListener('scroll', pinLater, { passive: true });
+  window.addEventListener('resize', pinLater);
   // 行情帶捲出畫面時，頂列換成精簡行情（只有電腦版寬度才顯示）
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(es => { document.body.classList.toggle('mk-away', !es[0].isIntersecting); }, { rootMargin: '-70px 0px 0px 0px' })
