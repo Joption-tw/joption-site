@@ -15,6 +15,7 @@
   --paper: #fffcf5; --kraft: #fff1da; --line: #e7dfd0; --white: #ffffff;
   --call: #d9321f; --put: #0a7f4d;
   --gain: #3a35c4; --loss: #d9321f;   /* 賺賠的顏色只改這兩個 */
+  --up: #d9321f; --down: #0a7f4d; --up-bg: #fde8e4; --down-bg: #e2f5ec;   /* 行情照台股習慣：漲紅跌綠 */
   --past: #b4afc9; --fri-past: #f3cf7c;
   --edge: 2.5px solid var(--ink); --pop: 4px 4px 0 var(--ink);
   --display: "Lilita One", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
@@ -42,9 +43,26 @@ button, input, select { font: inherit; color: inherit; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--indigo); }
 .dot.off { background: var(--loss); }
 
+.market-band { background: var(--paper); border-bottom: 3px solid var(--ink); }
+.market-band .wrap { padding-block: 14px 16px; }
+.market { display: grid; grid-template-columns: 1.25fr 1.25fr 1fr 1.25fr; background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); overflow: hidden; }
+.mk { min-width: 0; padding: 10px 16px 12px; border-left: 2.5px solid var(--ink); }
+.mk:first-child { border-left: 0; background: var(--kraft); }
+.mk.up { background: var(--up-bg); } .mk.down { background: var(--down-bg); }
+.mk h3 { margin: 0 0 2px; font-size: 16px; font-weight: 900; line-height: 1.4; }
+.mk h3 a { color: inherit; text-decoration: none; }
+.mk h3 a:hover { text-decoration: underline; }
+.mk h3 small { margin-left: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.mk-row { display: flex; align-items: center; gap: 10px; }
+.mk-big { font-family: var(--display); font-size: clamp(30px, 3.5vw, 46px); line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mk-big em { font-style: normal; font-size: .55em; margin-left: 4px; }
+.mk-sub { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mk svg { flex: 1 1 60px; min-width: 40px; max-width: 150px; height: 46px; }
+.up-t { color: var(--up); } .down-t { color: var(--down); }
+
 .hero { background-color: var(--sky); background-image: var(--hatch); border-bottom: 3px solid var(--ink); }
 .hero .wrap { padding-block: 20px 22px; }
-.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .tile { min-width: 0; padding: 12px 16px 13px; background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); }
 .tile.main { background: var(--coin); }
 .tile small { display: block; font-size: 13px; font-weight: 700; }
@@ -161,7 +179,13 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .vix-stats { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 12px 16px 0; font-size: 14px; }
 .vix-stats b { font-family: var(--display); font-weight: 400; font-size: 20px; margin-left: 5px; }
 
-@media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (max-width: 900px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tiles .tile:first-child { grid-column: 1 / -1; }
+  .market { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mk:nth-child(odd) { border-left: 0; }
+  .mk:nth-child(n+3) { border-top: 2.5px solid var(--ink); }
+}
 @media (max-width: 640px) {
   .podium { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .tools { margin-left: 0; }
@@ -179,8 +203,6 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 <header class="topbar"><div class="wrap">
   <div class="brand"><img src="../images/site/logo.png" alt="" width="38" height="38"><span>Joption 同學會監控中心</span></div>
   <div class="status">
-    <span class="pill num" id="index-pill" hidden>台指期 <b id="index-val"></b></span>
-    <span class="pill num" id="vix-pill" hidden>VIX <b id="vix-val"></b></span>
     <span class="pill"><i class="dot" id="live-dot"></i><span id="live-text">讀取中</span></span>
     <button class="pill pill-btn" id="logout" hidden>登出</button>
     <button class="pill pill-btn" id="preview-gate" hidden>看開通畫面</button>
@@ -208,6 +230,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 </div>
 
 <div id="app" hidden>
+<div class="market-band"><div class="wrap"><div class="market" id="market"></div></div></div>
 <div class="hero"><div class="wrap"><div class="tiles" id="tiles"></div></div></div>
 
 <main class="wrap">
@@ -268,7 +291,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     <div id="matrix-wrap"></div>
   </section>
 
-  <p class="disclaimer">資料來自 Joption 同學會試算表，VIX 來自期交所。過去績效不代表未來，每個人的部位和資金都不一樣，數字僅供同學之間參考。</p>
+  <p class="disclaimer">資料來自 Joption 同學會試算表，台指期和 VIX 來自期交所。過去績效不代表未來，每個人的部位和資金都不一樣，數字僅供同學之間參考。</p>
 </main>
 </div>
 
@@ -308,6 +331,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   const state = { data: null, sort: 'pct', asc: false, all: false, q: '', mode: null, metric: 'pct', period: null, showAllRanks: false, off: {}, hover: null, lastOk: null };
   const $ = id => document.getElementById(id);
+  const SORT_KEY = 'joption-monitor-sort';
+  try {
+    const saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+    if (saved && (saved.sort === 'order' || COLS.concat(MORE_COLS).some(c => c.k === saved.sort))) { state.sort = saved.sort; state.asc = !!saved.asc; }
+  } catch (e) { /* 存不了就用預設排序 */ }
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function int(v) { return v === null || v === undefined ? '–' : Math.round(v).toLocaleString('en-US'); }
@@ -331,21 +359,81 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const up = ms_.filter(m => m.pnl > 0).length, down = ms_.filter(m => m.pnl < 0).length;
     const teamPct = start ? pnl / start * 100 : 0;
     const avg = n ? sum(ms_, m => m.pct) / n : 0;
-    const lives = d.history ? d.history.contracts.filter(c => c.live && c.last).sort((a, b) => a.last.days - b.last.days) : [];  // 快結算的放前面
-    const first = lives[0] || null, last = first ? first.last : null;
     const flagged = ms_.filter(m => m.flag).length;
     $('tiles').innerHTML =
       '<div class="tile main"><small>全隊獲利</small><span class="big num ' + tone(pnl) + '">' + signed(pnl) + '</span><span class="sub num">' + pct(teamPct) + '，總資產 ' + int(asset) + '</span></div>' +
       '<div class="tile"><small>' + n + ' 位同學</small><span class="big num"><span class="gain">' + up + '</span> 賺 <span class="loss">' + down + '</span> 賠</span>' +
         '<div class="split" aria-hidden="true"><i style="flex:' + up + ';background:var(--gain)"></i><i style="flex:' + (n - up - down) + ';background:var(--line)"></i><i style="flex:' + down + ';background:var(--loss)"></i></div>' +
         '<span class="sub">' + ms_.filter(holding).length + ' 人有部位</span></div>' +
-      '<div class="tile"><small>平均獲利率</small><span class="big num ' + tone(avg) + '">' + pct(avg) + '</span><span class="sub">' + (flagged ? flagged + ' 人漲跌過大待確認，已算在內' : '每人一票，不看資金大小') + '</span></div>' +
-      (last ? '<div class="tile"><small>時間價值 ' + esc(first.name) + '（' + daysText(last.days) + '）</small><span class="big num">' + int(last.value) + '</span><span class="sub num">' +
-          (last.avg ? '比平均 ' + int(last.avg) + (last.diff >= 0 ? ' 高 ' : ' 低 ') + Math.abs(last.diff).toFixed(1) + '%' : '') +
-          lives.slice(1).map(c => '<br>' + esc(c.name) + ' ' + int(c.last.value) + '（' + daysText(c.last.days) + '）').join('') + '</span></div>'
-        : '<div class="tile"><small>時間價值</small><span class="big">–</span><span class="sub">還沒有資料</span></div>');
-    if (d.index) { $('index-pill').hidden = false; $('index-val').textContent = int(d.index); }
-    if (d.vix && d.vix.live) { $('vix-pill').hidden = false; $('vix-val').textContent = d.vix.live.v.toFixed(2); }
+      '<div class="tile"><small>平均獲利率</small><span class="big num ' + tone(avg) + '">' + pct(avg) + '</span><span class="sub">' + (flagged ? flagged + ' 人漲跌過大待確認，已算在內' : '每人一票，不看資金大小') + '</span></div>';
+  }
+
+  // 行情帶：時間價值來自績效表，台指期和 VIX 來自期交所
+  function spark(points, ref, color) {
+    const pts = points.filter(v => v !== null && v !== undefined);
+    if (pts.length < 2) return '';
+    const W = 150, H = 46, pad = 6;
+    let lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts);
+    if (hi === lo) { hi += 1; lo -= 1; }
+    const x = i => pad + i / (pts.length - 1) * (W - pad * 2), y = v => pad + (1 - (v - lo) / (hi - lo)) * (H - pad * 2);
+    const line = pts.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join('');
+    const refLine = ref !== null && ref !== undefined && ref >= lo && ref <= hi
+      ? '<line x1="' + pad + '" x2="' + (W - pad) + '" y1="' + y(ref) + '" y2="' + y(ref) + '" stroke="var(--muted)" stroke-dasharray="3 3"/>' : '';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true">' + refLine + '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><circle cx="' + x(pts.length - 1) + '" cy="' + y(pts[pts.length - 1]) + '" r="4" fill="' + color + '" stroke="var(--white)" stroke-width="1.5"/></svg>';
+  }
+
+  function change(v, digits) {
+    return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(digits);
+  }
+
+  function renderMarket(d) {
+    const lives = d.history ? d.history.contracts.filter(c => c.live && c.last).sort((a, b) => a.last.days - b.last.days) : [];  // 快結算的放前面
+    const first = lives[0] || null, last = first ? first.last : null;
+    const q = state.quote, fut = q && q.fut && q.fut.last ? q.fut : null, vix = q && q.vix && q.vix.last ? q.vix : null;
+    const tvPts = first ? first.data.filter(v => v !== null).slice(-36) : [];
+    const month = fut ? 'ABCDEFGHIJKL'.indexOf(fut.symbol.charAt(3)) + 1 : 0;
+    const diff = fut && fut.ref ? fut.last - fut.ref : null;
+    const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+    const vixDiff = vix && vix.ref ? vix.last - vix.ref : null;
+    const vixToday = d.vix && d.vix.today ? d.vix.today : [];
+    const vixPts = vix && vix.ticks && vix.ticks.length >= 20 ? vix.ticks : vixToday.concat(vix ? [vix.last] : []);
+    const lastDigits = v => (v % 1 ? 1 : 0);
+    $('market').innerHTML =
+      '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + ' ' + daysText(last.days) + '</small>' : '') + '</h3>' +
+        '<div class="mk-row"><span class="mk-big">' + (last ? int(last.value) : '–') + '</span>' + spark(tvPts, null, 'var(--coin-deep)') + '</div>' +
+        '<div class="mk-sub">' + (last && last.avg ? '比平均' + (last.diff >= 0 ? '高 ' : '低 ') + Math.abs(last.diff).toFixed(1) + '%' : '') + lives.slice(1).map(c => '，' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
+      '<div class="mk"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
+        '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' + (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
+        '<div class="mk-sub">' + (q ? '期交所 ' + esc(q.at) : '讀取中') + '</div></div>' +
+      '<div class="mk ' + dir + '"><h3>漲跌</h3>' +
+        '<div class="mk-row"><span class="mk-big ' + (dir ? dir + '-t' : '') + '">' + (diff === null ? '–' : change(diff, lastDigits(diff))) + (diff === null ? '' : '<em>(' + change(diff / fut.ref * 100, 2) + '%)</em>') + '</span></div>' +
+        '<div class="mk-sub">' + (fut && fut.ref ? '參考價 ' + int(fut.ref) : '') + '</div></div>' +
+      '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
+        '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
+        '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span>，昨收 ' + vix.ref.toFixed(2)) + '</div></div>';
+  }
+
+  // 行情比較快：頁面 30 秒問一次，伺服器也只 30 秒問期交所一次
+  let quoteBusy = false, lastQuote = 0;
+  async function loadQuote() {
+    if (window.MON_SNAPSHOT) {
+      const res = await api({ action: 'quote' });
+      state.quote = res.quote;
+      if (state.data) renderMarket(state.data);
+      return;
+    }
+    const token = getToken();
+    if (!token || document.hidden || quoteBusy || Date.now() - lastQuote < 25000) return;
+    quoteBusy = true;
+    lastQuote = Date.now();
+    try {
+      const res = await api({ action: 'quote', token: token });
+      if (res.ok && res.quote) {
+        state.quote = res.quote;
+        if (state.data) renderMarket(state.data);
+      }
+    } catch (e) { /* 下次再問，畫面留著上一筆 */ }
+    quoteBusy = false;
   }
 
   function daysText(d) {
@@ -363,7 +451,6 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const col = cols.concat(MORE_COLS).find(c => c.k === state.sort);
     rows.sort((a, b) => {
       if ((state.sort === 'pct' || state.sort === 'pnl') && a.flag !== b.flag) return a.flag ? 1 : -1;  // 待確認的不跟大家排名
-      if (state.sort === 'name') return a.name.localeCompare(b.name, 'zh-Hant') * (state.asc ? 1 : -1);
       if (state.sort === 'order') return a.order - b.order;
       const x = col && col.text ? ms(a[state.sort]) : a[state.sort], y = col && col.text ? ms(b[state.sort]) : b[state.sort];
       if (x === null || x === undefined) return 1;
@@ -372,9 +459,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     });
     const th = (k, t, cls) => {
       const on = state.sort === k;
-      return '<th scope="col" class="' + (cls || '') + '"' + (on ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button></th>';
+      return '<th scope="col" class="' + (cls || '') + '"' + (on ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on && k !== 'order' ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button></th>';
     };
-    let html = '<table><thead><tr>' + th('name', '社群暱稱') + cols.map(c => th(c.k, c.t, c.cls)).join('') + '</tr></thead><tbody>';
+    let html = '<table><thead><tr>' + th('order', '社群暱稱') + cols.map(c => th(c.k, c.t, c.cls)).join('') + '</tr></thead><tbody>';
     if (!rows.length) html += '<tr><td colspan="' + (cols.length + 1) + '" class="empty">找不到這個暱稱</td></tr>';
     rows.forEach(m => {
       const age = newest - ms(m.updated);
@@ -388,7 +475,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       }).join('') + '</tr>';
     });
     $('table').innerHTML = html + '</tbody></table>';
-    $('table-note').textContent = '共 ' + d.members.length + ' 位，人數跟著試算表自動增減。點欄位名稱可以排序。';
+    $('table-note').textContent = '共 ' + d.members.length + ' 位，人數跟著試算表自動增減。點欄位名稱排序，點社群暱稱回到固定順序，你選的排序下次打開還在。';
   }
 
   // 走勢圖
@@ -550,7 +637,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (!v || !v.daily.length) { stats.innerHTML = ''; box.innerHTML = '<div class="empty">還沒有 VIX 資料。程式裝好後會先補近 3 個月的收盤。</div>'; return; }
     const pts = v.daily, vals = pts.map(p => p[1]);
     const hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
-    const now = v.live ? v.live.v : vals[vals.length - 1];
+    const now = (state.quote && state.quote.vix && state.quote.vix.last) || (v.live ? v.live.v : vals[vals.length - 1]);
     const below = vals.filter(x => x < now).length;
     const fmtDay = s => s.slice(5, 10);
     stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span><span>最高<b>' + hi.toFixed(2) + '</b></span><span>最低<b>' + lo.toFixed(2) + '</b></span><span>比圖上 ' + Math.round(below / vals.length * 100) + '% 的日子高</span>';
@@ -710,6 +797,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   function renderAll() {
     const d = state.data;
     if (!d) return;
+    renderMarket(d);
     renderTiles(d);
     renderTable(d);
     $('erase-toggle').hidden = !state.canErase;
@@ -732,6 +820,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   async function api(body) {
     if (window.MON_SNAPSHOT) {  // 預覽頁不連線
       if (body.action === 'erase' || body.action === 'unerase') return window.MON_PREVIEW.apply(body);
+      if (body.action === 'quote') return { ok: true, quote: window.MON_PREVIEW.quote };
       return { ok: true, token: 'preview' };
     }
     const r = await fetch(DATA_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
@@ -745,7 +834,6 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     $('logout').hidden = on || !!window.MON_SNAPSHOT;
     $('preview-gate').hidden = on || !window.MON_SNAPSHOT;
     if (on) {
-      $('index-pill').hidden = true; $('vix-pill').hidden = true;
       $('live-dot').classList.add('off'); $('live-text').textContent = '需要開通';
     }
   }
@@ -792,6 +880,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const res = await api({ action: 'login', email: $('gate-email-input').value.trim() });
       if (res.ok) {
         if (window.MON_SNAPSHOT) state.gateDemo = false; else setToken(res.token);
+        lastQuote = 0;
+        loadQuote();
         await load(true);
       } else {
         err.textContent = res.pending ? '這個 Email 還沒開通，已經幫你記下來了。等歐大開通後，再回來按一次就能看。' : 'Email 格式不對，再檢查一下。';
@@ -815,7 +905,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const b = e.target.closest('button[data-sort]');
     if (!b) return;
     const k = b.dataset.sort;
-    if (state.sort === k) state.asc = !state.asc; else { state.sort = k; state.asc = k === 'name'; }
+    if (state.sort === k) state.asc = !state.asc; else { state.sort = k; state.asc = false; }
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({ sort: state.sort, asc: state.asc })); } catch (x) { /* 這次有效就好 */ }
     renderTable(state.data);
   });
   $('erase-toggle').addEventListener('click', e => {
@@ -874,10 +965,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (state.data && state.data.history && innerWidth !== lastW) { lastW = innerWidth; renderChart(state.data.history); renderVix(state.data.vix); }
     }, 150);
   });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); loadQuote(); } });
 
   load();
+  loadQuote();
   setInterval(() => load(), REFRESH_MS);
+  setInterval(loadQuote, 30000);
   setInterval(renderStatus, 30000);
 })();
 </script>
