@@ -155,7 +155,6 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gate button[type="submit"] { height: 44px; background: var(--coin); border: var(--edge); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink); font-weight: 900; font-size: 16px; cursor: pointer; }
 .gate button[type="submit"]:active { transform: translate(3px, 3px); box-shadow: none; }
 .gate button[disabled] { opacity: .6; cursor: default; }
-.gate .link { background: none; border: 0; padding: 0; color: var(--indigo); font-size: 14px; text-decoration: underline; cursor: pointer; align-self: flex-start; }
 .gate .err { margin: 0; color: var(--loss); font-size: 14px; font-weight: 700; }
 .pill-btn { cursor: pointer; font-weight: 700; }
 .pill-btn:hover { background: var(--sky); }
@@ -192,18 +191,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <div class="gate">
     <h1>同學開通才看得到</h1>
     <form id="gate-email">
-      <p>輸入你開通的 Email，我們會寄一組驗證碼給你。</p>
+      <p>輸入你開通的 Email 就能看。</p>
       <label for="gate-email-input">Email</label>
       <input id="gate-email-input" type="email" autocomplete="email" required placeholder="you@example.com">
-      <button type="submit">寄驗證碼</button>
-    </form>
-    <form id="gate-code" hidden>
-      <p id="gate-sent"></p>
-      <label for="gate-code-input">驗證碼</label>
-      <input id="gate-code-input" inputmode="numeric" autocomplete="one-time-code" required maxlength="6" placeholder="6 位數字">
       <p class="err" id="gate-err" hidden></p>
       <button type="submit">開始看</button>
-      <button type="button" class="link" id="gate-back">換一個 Email 或重寄</button>
     </form>
   </div>
 </div>
@@ -724,7 +716,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     renderStatus();
   }
 
-  // 開通：Email → 驗證碼 → 通行證存在這台裝置，之後不用再輸入；在開通名單取消打勾就失效
+  // 開通：輸入開通的 Email → 通行證存在這台裝置，之後不用再輸入；在開通名單取消打勾就失效
   const TOKEN_KEY = 'joption-monitor-token';
   function getToken() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return state.token || null; } }
   function setToken(t) {
@@ -734,7 +726,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   async function api(body) {
     if (window.MON_SNAPSHOT) {  // 預覽頁不連線
       if (body.action === 'erase' || body.action === 'unerase') return window.MON_PREVIEW.apply(body);
-      return body.action === 'verify' ? { ok: true, token: 'preview' } : { ok: true };
+      return { ok: true, token: 'preview' };
     }
     const r = await fetch(DATA_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(r.status);
@@ -784,41 +776,21 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   $('gate-email').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
-    state.email = $('gate-email-input').value.trim();
-    btn.disabled = true; btn.textContent = '寄送中';
+    const err = $('gate-err');
+    btn.disabled = true; btn.textContent = '確認中';
+    err.hidden = true;
     try {
-      const res = await api({ action: 'request', email: state.email });
-      if (!res.ok && res.msg) throw new Error(res.msg);
-      $('gate-sent').textContent = '如果 ' + state.email + ' 已經開通，驗證碼一分鐘內會寄到，也看一下垃圾信件匣。還沒開通的話，申請已經記下來，等歐大開通後再回來收一次驗證碼。';
-      $('gate-email').hidden = true; $('gate-code').hidden = false; $('gate-err').hidden = true;
-      $('gate-code-input').value = ''; $('gate-code-input').focus();
-    } catch (err) {
-      $('gate-sent').textContent = '';
-      alertGate(err.message === 'Email 格式不對' ? 'Email 格式不對，再檢查一下。' : '現在寄不出去，等一下再試一次。');
-    }
-    btn.disabled = false; btn.textContent = '寄驗證碼';
-  });
-  function alertGate(msg) {
-    let el = $('gate-email').querySelector('.err');
-    if (!el) { el = document.createElement('p'); el.className = 'err'; $('gate-email').insertBefore(el, $('gate-email').querySelector('button')); }
-    el.textContent = msg;
-  }
-  $('gate-code').addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    try {
-      const res = await api({ action: 'verify', email: state.email, code: $('gate-code-input').value });
-      if (!res.ok) { $('gate-err').textContent = '驗證碼不對或過期了，再試一次，或重寄一組。'; $('gate-err').hidden = false; }
-      else {
+      const res = await api({ action: 'login', email: $('gate-email-input').value.trim() });
+      if (res.ok) {
         if (window.MON_SNAPSHOT) state.gateDemo = false; else setToken(res.token);
-        $('gate-email').hidden = false; $('gate-code').hidden = true;
         await load(true);
+      } else {
+        err.textContent = res.pending ? '這個 Email 還沒開通，已經幫你記下來了。等歐大開通後，再回來按一次就能看。' : 'Email 格式不對，再檢查一下。';
+        err.hidden = false;
       }
-    } catch (err) { $('gate-err').textContent = '現在連不上，等一下再試一次。'; $('gate-err').hidden = false; }
-    btn.disabled = false;
+    } catch (x) { err.textContent = '現在連不上，等一下再試一次。'; err.hidden = false; }
+    btn.disabled = false; btn.textContent = '開始看';
   });
-  $('gate-back').addEventListener('click', () => { $('gate-email').hidden = false; $('gate-code').hidden = true; });
   $('logout').addEventListener('click', () => { setToken(null); state.data = null; showGate(true); });
   $('preview-gate').addEventListener('click', () => { state.gateDemo = true; showGate(true); });
 
