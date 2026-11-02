@@ -222,6 +222,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       <h2 id="h-now">同學現況</h2>
       <div class="tools">
         <input class="search" id="search" type="search" placeholder="找暱稱" aria-label="找暱稱">
+        <div class="seg" id="pnl-view" role="group" aria-label="獲利顯示的期間">
+          <button data-v="session">當盤</button><button data-v="week">當週</button><button data-v="total">累積</button>
+        </div>
         <button class="btn" id="toggle-all" aria-pressed="false">顯示全部欄位</button>
       </div>
     </div>
@@ -314,6 +317,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   const state = { data: null, sort: 'pct', asc: false, all: false, q: '', mode: null, metric: 'pct', period: null, showAllRanks: false, off: {}, hover: null, lastOk: null };
   const $ = id => document.getElementById(id);
+  const VIEW_KEY = 'joption-monitor-view';
+  state.view = 'session';
+  try {
+    const savedView = localStorage.getItem(VIEW_KEY);
+    if (savedView === 'session' || savedView === 'week' || savedView === 'total') state.view = savedView;
+  } catch (e) { /* 存不了就用當盤 */ }
   const SORT_KEY = 'joption-monitor-sort';
   try {
     const saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
@@ -413,7 +422,21 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const cols = state.all ? COLS.concat(MORE_COLS) : COLS;
     const newest = Math.max.apply(null, d.members.map(m => ms(m.updated)).concat(0));
     const q = state.q.trim().toLowerCase();
-    let rows = d.members.map((m, i) => Object.assign({ order: i }, m));
+    // 獲利兩欄跟著選的期間換，沒有這一期資料的人顯示 –，排在最後
+    const periods = state.view === 'session' ? d.sessions : state.view === 'week' ? d.weeks : null;
+    const period = periods && periods.length ? periods[periods.length - 1] : null;
+    const byName = {};
+    if (period) period.rows.forEach(r => { byName[r.name] = r; });
+    let rows = d.members.map((m, i) => {
+      const row = Object.assign({ order: i }, m);
+      if (periods) {
+        const r = byName[m.name];
+        row.pct = r ? r.pct : null;
+        row.pnl = r ? r.pnl : null;
+        row.flag = r ? r.flag : false;
+      }
+      return row;
+    });
     if (q) rows = rows.filter(m => m.name.toLowerCase().indexOf(q) >= 0);
     const col = cols.concat(MORE_COLS).find(c => c.k === state.sort);
     rows.sort((a, b) => {
@@ -428,7 +451,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const on = state.sort === k;
       return '<th scope="col" class="' + (cls || '') + '"' + (on ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on && k !== 'order' ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button></th>';
     };
-    let html = '<table><thead><tr>' + th('order', '社群暱稱') + cols.map(c => th(c.k, c.t, c.cls)).join('') + '</tr></thead><tbody>';
+    const prefix = state.view === 'session' ? '當盤' : state.view === 'week' ? '當週' : '累積';
+    const title = c => (c.k === 'pct' ? prefix + '獲利率' : c.k === 'pnl' ? prefix + '金額' : c.t);
+    document.querySelectorAll('#pnl-view button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.view));
+    let html = '<table><thead><tr>' + th('order', '社群暱稱') + cols.map(c => th(c.k, title(c), c.cls)).join('') + '</tr></thead><tbody>';
     if (!rows.length) html += '<tr><td colspan="' + (cols.length + 1) + '" class="empty">找不到這個暱稱</td></tr>';
     rows.forEach(m => {
       const age = newest - ms(m.updated);
@@ -442,7 +468,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       }).join('') + '</tr>';
     });
     $('table').innerHTML = html + '</tbody></table>';
-    $('table-note').textContent = '共 ' + d.members.length + ' 位，人數跟著試算表自動增減。點欄位名稱排序，點社群暱稱回到固定順序，你選的排序下次打開還在。';
+    const started = d.sessions.length ? d.sessions[0].label.slice(0, 5) : '';
+    const viewNote = state.view === 'total' ? '累積：起始資產到現在，用試算表的數字。'
+      : !period ? '這一期還沒有資料，同學的資料一更新就會出現。'
+      : state.view === 'session' ? '當盤：' + period.label + '，現在的資產減前一盤收盤前 5 分鐘。'
+      : '當週：' + period.label + '，算到現在。' + (d.weeks.length === 1 ? '這週從 ' + started + ' 才開始記錄，還不是完整一週。' : '');
+    $('table-note').textContent = viewNote + '共 ' + d.members.length + ' 位，人數跟著試算表自動增減。點欄位名稱排序，點社群暱稱回到固定順序，你的選擇下次打開還在。';
   }
 
   // 走勢圖
@@ -861,6 +892,13 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   // 事件
   $('search').addEventListener('input', e => { state.q = e.target.value; if (state.data) renderTable(state.data); });
+  $('pnl-view').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    state.view = b.dataset.v;
+    try { localStorage.setItem(VIEW_KEY, state.view); } catch (x) { /* 這次有效就好 */ }
+    if (state.data) renderTable(state.data);
+  });
   $('toggle-all').addEventListener('click', e => {
     state.all = !state.all;
     e.currentTarget.setAttribute('aria-pressed', state.all);
