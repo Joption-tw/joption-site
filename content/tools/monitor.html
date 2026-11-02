@@ -601,22 +601,25 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const isNow = state.mode === 'now';
     const periods = isNow ? [] : periodsOf(d);
     sel.hidden = isNow || !periods.length;
-    if (!isNow) {
-      if (state.period === null || state.period >= periods.length) state.period = periods.length - 1;
-      sel.innerHTML = periods.map((p, i) => '<option value="' + i + '"' + (i === state.period ? ' selected' : '') + '>' + esc(p.label) + '</option>').join('');
-    }
+    // 沒選過就一直跟著最新一期（當盤即時），選過舊的才停在那一期
+    const at = state.period === null || state.period >= periods.length ? periods.length - 1 : state.period;
+    if (!isNow) sel.innerHTML = periods.map((p, i) => '<option value="' + i + '"' + (i === at ? ' selected' : '') + '>' + esc(p.label) + '</option>').join('');
+    const current = isNow ? null : periods[at];
     $('cmp-banner').innerHTML = d.demoHistory && !isNow
       ? '<div class="banner"><span>範例畫面：這裡的人名和數字都是假的。</span><span>正式紀錄從裝好程式那天開始，每次收盤自動累積。</span></div>' : '';
+    const asOf = d.at ? '資料時間 ' + d.at.slice(11, 16) + '，' : '';
     $('cmp-desc').textContent = isNow
       ? '起始資產到現在的累積，直接用試算表的獲利金額和獲利率。'
-      : state.mode === 'week' ? '結算週從週三下午算到下週三，損益已扣掉登記的出入金。' : '早盤看 13:45 收盤，夜盤看隔天 05:00 收盤，損益已扣掉登記的出入金。';
+      : current && current.live
+        ? (state.mode === 'week' ? '這週還沒結束，算到現在。' : '這盤還在進行中，用現在的資產減上次收盤。') + asOf + '每分鐘更新，損益已扣掉登記的出入金。'
+        : state.mode === 'week' ? '結算週從週三下午算到下週三，損益已扣掉登記的出入金。' : '早盤看 13:45 收盤，夜盤看隔天 05:00 收盤，損益已扣掉登記的出入金。';
 
     const raw = isNow ? d.members.map(m => ({ name: m.name, pnl: m.pnl || 0, pct: m.pct || 0, flag: m.flag }))
-      : periods.length ? periods[state.period].rows : [];
+      : current ? current.rows : [];
     const unit = state.mode === 'week' ? '這週' : isNow ? '目前' : '這盤';
     if (!raw.length) {
       $('podium').innerHTML = '';
-      $('ranks').innerHTML = '<div class="empty">還沒有紀錄。裝好程式後，下一次收盤就會出現第一筆比較。</div>';
+      $('ranks').innerHTML = '<div class="empty">這盤還沒有人的資產變動，同學的資料一更新就會出現排名。</div>';
       $('matrix-wrap').innerHTML = '';
       return;
     }
@@ -851,7 +854,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     state.metric = b.dataset.v;
     renderCompare(state.data);
   });
-  $('period').addEventListener('change', e => { state.period = +e.target.value; renderCompare(state.data); });
+  $('period').addEventListener('change', e => {
+    const i = +e.target.value, count = periodsOf(state.data).length;
+    state.period = i === count - 1 ? null : i;
+    renderCompare(state.data);
+  });
   $('ranks').addEventListener('click', e => {
     if (e.target.id !== 'more-ranks') return;
     state.showAllRanks = !state.showAllRanks;
