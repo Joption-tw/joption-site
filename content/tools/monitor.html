@@ -614,8 +614,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     $('cmp-desc').textContent = isNow
       ? '起始資產到現在的累積，直接用試算表的獲利金額和獲利率。'
       : current && current.live
-        ? (state.mode === 'week' ? '這週還沒結束，算到現在。' : '這盤還在進行中，用現在的資產減上次收盤。') + asOf + '每分鐘更新，損益已扣掉登記的出入金。'
-        : state.mode === 'week' ? '結算週從週三下午算到下週三，損益已扣掉登記的出入金。' : '早盤看 13:45 收盤，夜盤看隔天 05:00 收盤，損益已扣掉登記的出入金。';
+        ? (state.mode === 'week' ? '這週還沒結束，算到現在。' : '這盤還在進行中，用現在的資產減前一盤收盤前 5 分鐘。') + asOf + '每分鐘更新，損益已扣掉登記的出入金。'
+        : state.mode === 'week' ? '結算週從週三下午算到下週三，損益已扣掉登記的出入金。' : '每盤都看收盤前 5 分鐘：早盤 13:40，夜盤隔天 04:55。損益已扣掉登記的出入金。';
 
     const raw = isNow ? d.members.map(m => ({ name: m.name, pnl: m.pnl || 0, pct: m.pct || 0, flag: m.flag }))
       : current ? current.rows : [];
