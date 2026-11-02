@@ -208,6 +208,13 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   </div>
 </div>
 
+<div class="wrap" id="loading" hidden>
+  <div class="gate">
+    <h1>資料載入中</h1>
+    <p>正在讀最新的試算表，最久大約一分鐘，不用重新整理。</p>
+  </div>
+</div>
+
 <div id="app" hidden>
 <div class="hero"><div class="wrap"><div class="tiles" id="tiles"></div></div></div>
 
@@ -735,6 +742,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   }
   function showGate(on) {
     $('gate').hidden = !on;
+    $('loading').hidden = true;
     $('app').hidden = on;
     $('logout').hidden = on || !!window.MON_SNAPSHOT;
     $('preview-gate').hidden = on || !window.MON_SNAPSHOT;
@@ -759,6 +767,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (loading || (state.data && (document.hidden || (force !== true && Date.now() - lastFetch < 30000)))) return;
     loading = true;
     lastFetch = Date.now();
+    if (!state.data) { $('gate').hidden = true; $('loading').hidden = false; }
     try {
       const res = await api({ action: 'data', token: token });
       if (!res.ok) { setToken(null); state.data = null; showGate(true); return; }
