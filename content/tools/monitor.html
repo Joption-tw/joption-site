@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex">
+<title>Joption 同學會監控中心</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Noto+Sans+TC:wght@900&display=swap">
+<style>
+/* 版面：頂列 → 全隊貼紙 → 同學表格 → 時間價值走勢 → 每盤每週比較。Joption 品牌只有亮色版。 */
+:root {
+  --coin: #ffc62e; --coin-deep: #f0a30a; --sky: #cff3fb; --sky-deep: #7fd8ee;
+  --indigo: #3a35c4; --indigo-deep: #241f86; --ink: #17142b; --muted: #5c5870;
+  --paper: #fffcf5; --kraft: #fff1da; --line: #e7dfd0; --white: #ffffff;
+  --call: #d9321f; --put: #0a7f4d;
+  --gain: #3a35c4; --loss: #d9321f;   /* 賺賠的顏色只改這兩個 */
+  --past: #b4afc9; --fri-past: #f3cf7c;
+  --edge: 2.5px solid var(--ink); --pop: 4px 4px 0 var(--ink);
+  --display: "Lilita One", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --text: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+  --hatch: repeating-linear-gradient(115deg, rgba(58, 53, 196, .11) 0 2px, transparent 2px 10px);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--text); -webkit-text-size-adjust: 100%; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--coin); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--indigo); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.gain { color: var(--gain); } .loss { color: var(--loss); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--coin); border-bottom: 3px solid var(--ink); }
+.topbar .wrap { display: flex; align-items: center; gap: 10px; min-height: 58px; padding-block: 6px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 19px; line-height: 1.2; font-weight: 900; }
+.brand img { width: 38px; height: 38px; object-fit: contain; }
+.status { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 99px; white-space: nowrap; }
+.pill b { font-family: var(--display); font-weight: 400; font-size: 15px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--indigo); }
+.dot.off { background: var(--loss); }
+
+.hero { background-color: var(--sky); background-image: var(--hatch); border-bottom: 3px solid var(--ink); }
+.hero .wrap { padding-block: 20px 22px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.tile { min-width: 0; padding: 12px 16px 13px; background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); }
+.tile.main { background: var(--coin); }
+.tile small { display: block; font-size: 13px; font-weight: 700; }
+.tile .big { display: block; margin: 2px 0 1px; font-family: var(--display); font-size: clamp(26px, 3vw, 36px); line-height: 1.2; overflow-wrap: anywhere; }
+.tile.main .big.gain, .tile.main .big.loss { color: var(--ink); }
+.tile span.sub { font-size: 13px; color: var(--muted); }
+.tile.main span.sub { color: var(--ink); }
+.split { display: flex; height: 10px; margin: 8px 0 5px; gap: 2px; }
+.split i { display: block; min-width: 3px; border-radius: 3px; }
+
+section { padding-block: 26px 6px; }
+.head { display: flex; align-items: flex-end; gap: 10px 14px; flex-wrap: wrap; margin-bottom: 12px; }
+h2 { display: inline; margin: 0; font-family: var(--display); font-weight: 900; font-size: 25px; line-height: 1.35; background: linear-gradient(transparent 68%, var(--coin) 68%, var(--coin) 92%, transparent 92%); text-wrap: balance; }
+.head p { flex: 0 0 100%; margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.tools { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.search { width: 160px; height: 36px; padding: 0 12px; background: var(--white); border: var(--edge); border-radius: 10px; }
+.btn, .seg button { height: 36px; padding: 0 12px; background: var(--white); border: var(--edge); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 14px; white-space: nowrap; }
+.btn:hover { background: var(--sky); }
+.btn:active { transform: translate(2px, 2px); }
+.btn[aria-pressed="true"] { background: var(--coin); }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -2.5px; }
+.seg button:first-child { border-radius: 10px 0 0 10px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 10px 10px 0; }
+.seg button:hover { background: var(--sky); }
+.seg button[aria-pressed="true"] { background: var(--indigo); color: var(--white); }
+select.btn { padding-right: 6px; max-width: 170px; }
+
+.card { background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); margin-right: 4px; }
+.scroll { overflow-x: auto; border-radius: 11px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 11px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { position: sticky; top: 0; background: var(--kraft); border-bottom: 2.5px solid var(--ink); font-size: 13px; font-weight: 900; z-index: 2; }
+th button { all: unset; cursor: pointer; display: inline-flex; gap: 3px; align-items: center; }
+th button:focus-visible { outline: 3px solid var(--indigo); outline-offset: 2px; }
+th .arrow { font-size: 10px; color: var(--indigo); }
+th.call-h { color: var(--call); } th.put-h { color: var(--put); }
+td:first-child, th:first-child { position: sticky; left: 0; text-align: left; background: var(--white); z-index: 1; border-right: 2px solid var(--line); }
+th:first-child { background: var(--kraft); z-index: 3; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #eefbfe; }
+td.name { font-weight: 700; }
+td.rank { color: var(--muted); }
+td.strong { font-weight: 900; }
+td.when { color: var(--muted); font-size: 13px; }
+.chip { display: inline-block; white-space: nowrap; margin-left: 6px; padding: 0 7px; border-radius: 99px; font-size: 11px; font-weight: 700; line-height: 1.6; vertical-align: 1px; background: var(--kraft); color: var(--ink); border: 1.5px solid var(--ink); }
+.chip.warn { background: var(--coin); }
+.chip.hold { background: var(--sky); }
+.meter { display: inline-flex; align-items: center; gap: 6px; }
+.meter i { position: relative; display: block; width: 44px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.meter i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--v); background: var(--indigo); border-radius: 4px; }
+.foot-note { margin: 10px 4px 0 0; color: var(--muted); font-size: 13px; }
+.empty { padding: 26px 18px; color: var(--muted); text-align: center; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 4px; }
+.lg { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 99px; cursor: pointer; font-size: 13px; font-weight: 700; }
+.lg i { width: 16px; height: 0; border-top: 3px solid var(--c); border-radius: 2px; }
+.lg i.dash { border-top-style: dashed; }
+.lg[aria-pressed="false"] { opacity: .45; }
+.lg:hover { background: var(--sky); }
+.chart { position: relative; padding: 4px 8px 8px; }
+.chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.chart text { font: 12px var(--text); fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart text.tag { font-weight: 900; font-size: 13px; }
+.tip { position: absolute; top: 8px; z-index: 4; min-width: 150px; padding: 7px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink); font-size: 13px; pointer-events: none; }
+.tip b { display: block; margin-bottom: 2px; }
+.tip div { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+.tip span { display: inline-flex; align-items: center; gap: 5px; }
+.tip span i { width: 10px; height: 3px; background: var(--c); border-radius: 2px; }
+
+.banner { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin: 0 4px 14px 0; padding: 8px 14px; background: var(--coin); border: var(--edge); border-radius: 12px; font-size: 14px; font-weight: 700; }
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 4px 16px 0; }
+.medal { min-width: 0; padding: 10px 14px; background: var(--white); border: var(--edge); border-radius: 14px; box-shadow: var(--pop); }
+.medal.top { background: var(--sky); }
+.medal small { display: block; font-size: 13px; font-weight: 700; }
+.medal strong { display: block; font-size: 19px; font-weight: 900; line-height: 1.3; overflow-wrap: anywhere; }
+.medal span { font-family: var(--display); font-size: 21px; }
+.medal em { font-style: normal; color: var(--muted); font-size: 13px; margin-left: 6px; }
+.rank-list { padding: 6px 0; }
+.bar-row { display: grid; grid-template-columns: 30px minmax(92px, 170px) minmax(0, 1fr) 96px; align-items: center; gap: 8px; padding: 3px 14px; font-size: 14px; }
+.bar-row:hover { background: #eefbfe; }
+.bar-row .who { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-row .val { text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar-row .pos { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.axis { position: relative; display: grid; grid-template-columns: 1fr 1fr; height: 16px; }
+.axis::before { content: ""; position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; background: var(--ink); margin-left: -1px; }
+.axis i { display: block; height: 100%; border-radius: 4px 0 0 4px; justify-self: end; background: var(--loss); }
+.axis i.up { justify-self: start; grid-column: 2; border-radius: 0 4px 4px 0; background: var(--gain); }
+.bar-row.flag .axis i { background: var(--past); }
+.gap-note { padding: 4px 14px; color: var(--muted); font-size: 13px; text-align: center; }
+.more { display: flex; justify-content: center; padding: 6px 0 12px; }
+h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
+.matrix td, .matrix th { padding: 5px 8px; font-size: 13px; }
+.matrix td.cell { min-width: 58px; text-align: center; }
+.disclaimer { padding-block: 22px 34px; color: var(--muted); font-size: 13px; }
+
+.erase-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 4px 12px 0; padding: 8px 12px; background: var(--kraft); border: var(--edge); border-radius: 12px; font-size: 14px; }
+.erase-bar label { font-weight: 700; }
+.erase-bar .do { background: var(--coin); }
+.erase-bar button[disabled] { opacity: .45; cursor: default; }
+#erase-undo { margin-left: auto; }
+.gate { max-width: 440px; margin: 48px auto 64px; padding: 22px 24px 24px; background: var(--white); border: var(--edge); border-radius: 16px; box-shadow: var(--pop); }
+.gate h1 { margin: 0 0 6px; font-family: var(--display); font-weight: 900; font-size: 24px; line-height: 1.35; }
+.gate p { margin: 0 0 14px; color: var(--muted); }
+.gate form { display: flex; flex-direction: column; gap: 10px; }
+.gate label { font-weight: 700; font-size: 14px; }
+.gate input { width: 100%; height: 44px; padding: 0 12px; background: var(--white); border: var(--edge); border-radius: 10px; font-size: 16px; }
+.gate button[type="submit"] { height: 44px; background: var(--coin); border: var(--edge); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink); font-weight: 900; font-size: 16px; cursor: pointer; }
+.gate button[type="submit"]:active { transform: translate(3px, 3px); box-shadow: none; }
+.gate button[disabled] { opacity: .6; cursor: default; }
+.gate .link { background: none; border: 0; padding: 0; color: var(--indigo); font-size: 14px; text-decoration: underline; cursor: pointer; align-self: flex-start; }
+.gate .err { margin: 0; color: var(--loss); font-size: 14px; font-weight: 700; }
+.pill-btn { cursor: pointer; font-weight: 700; }
+.pill-btn:hover { background: var(--sky); }
+.vix-stats { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 12px 16px 0; font-size: 14px; }
+.vix-stats b { font-family: var(--display); font-weight: 400; font-size: 20px; margin-left: 5px; }
+
+@media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (max-width: 640px) {
+  .podium { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .tools { margin-left: 0; }
+  .bar-row { grid-template-columns: 22px minmax(70px, 96px) minmax(0, 1fr) 72px; padding: 3px 8px; gap: 5px; font-size: 13px; }
+  .topbar { position: static; }
+  td.name { white-space: normal; min-width: 104px; max-width: 124px; overflow-wrap: anywhere; line-height: 1.3; }
+  td.name .chip { margin: 2px 4px 0 0; }
+  .search { width: 130px; }
+  h2 { font-size: 22px; }
+}
+@media (prefers-reduced-motion: no-preference) { .btn, .lg { transition: background .1s; } }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand"><img src="../images/site/logo.png" alt="" width="38" height="38"><span>Joption 同學會監控中心</span></div>
+  <div class="status">
+    <span class="pill num" id="index-pill" hidden>台指期 <b id="index-val"></b></span>
+    <span class="pill num" id="vix-pill" hidden>VIX <b id="vix-val"></b></span>
+    <span class="pill"><i class="dot" id="live-dot"></i><span id="live-text">讀取中</span></span>
+    <button class="pill pill-btn" id="logout" hidden>登出</button>
+    <button class="pill pill-btn" id="preview-gate" hidden>看開通畫面</button>
+  </div>
+</div></header>
+
+<div class="wrap" id="gate" hidden>
+  <div class="gate">
+    <h1>同學開通才看得到</h1>
+    <form id="gate-email">
+      <p>輸入你開通的 Email，我們會寄一組驗證碼給你。</p>
+      <label for="gate-email-input">Email</label>
+      <input id="gate-email-input" type="email" autocomplete="email" required placeholder="you@example.com">
+      <button type="submit">寄驗證碼</button>
+    </form>
+    <form id="gate-code" hidden>
+      <p id="gate-sent"></p>
+      <label for="gate-code-input">驗證碼</label>
+      <input id="gate-code-input" inputmode="numeric" autocomplete="one-time-code" required maxlength="6" placeholder="6 位數字">
+      <p class="err" id="gate-err" hidden></p>
+      <button type="submit">開始看</button>
+      <button type="button" class="link" id="gate-back">換一個 Email 或重寄</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+<div class="hero"><div class="wrap"><div class="tiles" id="tiles"></div></div></div>
+
+<main class="wrap">
+  <section aria-labelledby="h-now">
+    <div class="head">
+      <h2 id="h-now">同學現況</h2>
+      <div class="tools">
+        <input class="search" id="search" type="search" placeholder="找暱稱" aria-label="找暱稱">
+        <button class="btn" id="toggle-all" aria-pressed="false">顯示全部欄位</button>
+      </div>
+    </div>
+    <div class="card"><div class="scroll" id="table"></div></div>
+    <p class="foot-note" id="table-note"></p>
+  </section>
+
+  <section aria-labelledby="h-tv">
+    <div class="head">
+      <h2 id="h-tv">時間價值走勢</h2>
+      <div class="tools"><button class="btn" id="erase-toggle" aria-pressed="false" hidden>橡皮擦</button></div>
+      <p>橫軸是離結算還剩幾天，週三和週五結算的合約都走到結算，可以直接比。靛藍粗線是這期週三，黃粗線是這期週五，黑線是已結算合約的優化平均，細線是過去幾期。按標籤可以開關。</p>
+    </div>
+    <div class="erase-bar" id="erase-bar" hidden></div>
+    <div class="card">
+      <div class="chips" id="legend"></div>
+      <div class="chart" id="chart"></div>
+    </div>
+    <p class="foot-note" id="tv-note"></p>
+  </section>
+
+  <section aria-labelledby="h-vix">
+    <div class="head">
+      <h2 id="h-vix">VIX 波動率</h2>
+      <p>臺指選擇權波動率指數，來源是期交所，每 15 分鐘收一次。圖上每天一個點，是當天最後一筆。</p>
+    </div>
+    <div class="card">
+      <div class="vix-stats num" id="vix-stats"></div>
+      <div class="chart" id="vix-chart"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-cmp">
+    <div class="head">
+      <h2 id="h-cmp">誰賺得比較多</h2>
+      <div class="tools">
+        <div class="seg" id="mode" role="group" aria-label="比較期間">
+          <button data-v="session">每盤</button><button data-v="week">每週</button><button data-v="now">目前累積</button>
+        </div>
+        <select class="btn" id="period" aria-label="選擇哪一期"></select>
+        <div class="seg" id="metric" role="group" aria-label="比較單位">
+          <button data-v="pct">獲利率</button><button data-v="pnl">金額</button>
+        </div>
+      </div>
+      <p id="cmp-desc"></p>
+    </div>
+    <div id="cmp-banner"></div>
+    <div class="podium" id="podium"></div>
+    <div class="card"><div class="rank-list" id="ranks"></div></div>
+    <div id="matrix-wrap"></div>
+  </section>
+
+  <p class="disclaimer">資料來自 Joption 同學會試算表，VIX 來自期交所。過去績效不代表未來，每個人的部位和資金都不一樣，數字僅供同學之間參考。</p>
+</main>
+</div>
+
+<script>
+(function () {
+  // 貼上 Apps Script 部署後的網址，網頁就會即時讀試算表
+  const DATA_URL = 'https://script.google.com/macros/s/AKfycbz7zFm3gVFAq_-y8pxc873AeK0jAWyyrPbUJ9PL3N4vdllJ55rKnOBlbSXAP5zM99tlpQ/exec';
+  const REFRESH_MS = 60000;
+
+  const COLS = [
+    { k: 'pct', t: '獲利率', f: pct, color: true, strong: true },
+    { k: 'pnl', t: '獲利金額', f: signed, color: true },
+    { k: 'asset', t: '資產', f: int },
+    { k: 'ratio', t: '保證金剩餘', f: meter },
+    { k: 'tv', t: '時間價值', f: int },
+    { k: 'cpr', t: '買權比值', f: dec(2) },
+    { k: 'delta', t: '總Delta', f: dec(1) },
+    { k: 'pointsRatio', t: '點數/資金比', f: int },
+    { k: 'callNet', t: 'Call 口數差', f: int, cls: 'call-h' },
+    { k: 'putNet', t: 'Put 口數差', f: int, cls: 'put-h' },
+    { k: 'updated', t: '更新時間', f: when, cls2: 'when', text: true },
+  ];
+  const MORE_COLS = [
+    { k: 'start', t: '起始資產', f: int },
+    { k: 'margin', t: '保證金餘額', f: int },
+    { k: 'points', t: '總點數', f: int },
+    { k: 'callSell', t: 'Call 賣方', f: int, cls: 'call-h' },
+    { k: 'callBuy', t: 'Call 買方', f: int, cls: 'call-h' },
+    { k: 'putSell', t: 'Put 賣方', f: int, cls: 'put-h' },
+    { k: 'putBuy', t: 'Put 買方', f: int, cls: 'put-h' },
+    { k: 'callPts', t: '買權點數', f: dec(1), cls: 'call-h' },
+    { k: 'putPts', t: '賣權點數', f: dec(1), cls: 'put-h' },
+    { k: 'callDelta', t: '買權Delta', f: dec(1), cls: 'call-h' },
+    { k: 'putDelta', t: '賣權Delta', f: dec(1), cls: 'put-h' },
+    { k: 'fut', t: '期貨指數', f: int },
+  ];
+
+  const state = { data: null, sort: 'pct', asc: false, all: false, q: '', mode: null, metric: 'pct', period: null, showAllRanks: false, off: {}, hover: null, lastOk: null };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function int(v) { return v === null || v === undefined ? '–' : Math.round(v).toLocaleString('en-US'); }
+  function dec(n) { return v => (v === null || v === undefined ? '–' : v.toFixed(n)); }
+  function signed(v) { return v === null || v === undefined ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString('en-US'); }
+  function pct(v) { return v === null || v === undefined ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2) + '%'; }
+  function tone(v) { return v > 0 ? 'gain' : v < 0 ? 'loss' : ''; }
+  function meter(v) { return v === null ? '–' : '<span class="meter"><i style="--v:' + Math.max(0, Math.min(100, v)) + '%"></i>' + v.toFixed(0) + '%</span>'; }
+  function when(v) { return v ? v.slice(5, 16) : '–'; }
+  function ms(s) { const t = new Date(s).getTime(); return isNaN(t) ? 0 : t; }
+  function holding(m) { return !!(m.callSell || m.callBuy || m.putSell || m.putBuy); }
+  function sum(list, f) { return list.reduce((a, x) => a + (f(x) || 0), 0); }
+
+  // 全隊數字都從同學列現算，增刪人不用改任何範圍
+  function renderTiles(d) {
+    const ms_ = d.members, n = ms_.length;
+    const pnl = sum(ms_, m => m.pnl), start = sum(ms_, m => m.start), asset = sum(ms_, m => m.asset);
+    const up = ms_.filter(m => m.pnl > 0).length, down = ms_.filter(m => m.pnl < 0).length;
+    const teamPct = start ? pnl / start * 100 : 0;
+    const avg = n ? sum(ms_, m => m.pct) / n : 0;
+    const lives = d.history ? d.history.contracts.filter(c => c.live && c.last).sort((a, b) => a.last.days - b.last.days) : [];  // 快結算的放前面
+    const first = lives[0] || null, last = first ? first.last : null;
+    const flagged = ms_.filter(m => m.flag).length;
+    $('tiles').innerHTML =
+      '<div class="tile main"><small>全隊獲利</small><span class="big num ' + tone(pnl) + '">' + signed(pnl) + '</span><span class="sub num">' + pct(teamPct) + '，總資產 ' + int(asset) + '</span></div>' +
+      '<div class="tile"><small>' + n + ' 位同學</small><span class="big num"><span class="gain">' + up + '</span> 賺 <span class="loss">' + down + '</span> 賠</span>' +
+        '<div class="split" aria-hidden="true"><i style="flex:' + up + ';background:var(--gain)"></i><i style="flex:' + (n - up - down) + ';background:var(--line)"></i><i style="flex:' + down + ';background:var(--loss)"></i></div>' +
+        '<span class="sub">' + ms_.filter(holding).length + ' 人有部位</span></div>' +
+      '<div class="tile"><small>平均獲利率</small><span class="big num ' + tone(avg) + '">' + pct(avg) + '</span><span class="sub">' + (flagged ? flagged + ' 人漲跌過大待確認，已算在內' : '每人一票，不看資金大小') + '</span></div>' +
+      (last ? '<div class="tile"><small>時間價值 ' + esc(first.name) + '（' + daysText(last.days) + '）</small><span class="big num">' + int(last.value) + '</span><span class="sub num">' +
+          (last.avg ? '比平均 ' + int(last.avg) + (last.diff >= 0 ? ' 高 ' : ' 低 ') + Math.abs(last.diff).toFixed(1) + '%' : '') +
+          lives.slice(1).map(c => '<br>' + esc(c.name) + ' ' + int(c.last.value) + '（' + daysText(c.last.days) + '）').join('') + '</span></div>'
+        : '<div class="tile"><small>時間價值</small><span class="big">–</span><span class="sub">還沒有資料</span></div>');
+    if (d.index) { $('index-pill').hidden = false; $('index-val').textContent = int(d.index); }
+    if (d.vix && d.vix.live) { $('vix-pill').hidden = false; $('vix-val').textContent = d.vix.live.v.toFixed(2); }
+  }
+
+  function daysText(d) {
+    if (d <= 0) return '結算';
+    const day = Math.floor(d), h = Math.round((d - day) * 24);
+    return '剩 ' + (h === 24 ? day + 1 : day) + ' 天' + (h && h !== 24 ? ' ' + h + ' 小時' : '');
+  }
+
+  function renderTable(d) {
+    const cols = state.all ? COLS.concat(MORE_COLS) : COLS;
+    const newest = Math.max.apply(null, d.members.map(m => ms(m.updated)).concat(0));
+    const q = state.q.trim().toLowerCase();
+    let rows = d.members.map((m, i) => Object.assign({ order: i }, m));
+    if (q) rows = rows.filter(m => m.name.toLowerCase().indexOf(q) >= 0);
+    const col = cols.concat(MORE_COLS).find(c => c.k === state.sort);
+    rows.sort((a, b) => {
+      if ((state.sort === 'pct' || state.sort === 'pnl') && a.flag !== b.flag) return a.flag ? 1 : -1;  // 待確認的不跟大家排名
+      if (state.sort === 'name') return a.name.localeCompare(b.name, 'zh-Hant') * (state.asc ? 1 : -1);
+      if (state.sort === 'order') return a.order - b.order;
+      const x = col && col.text ? ms(a[state.sort]) : a[state.sort], y = col && col.text ? ms(b[state.sort]) : b[state.sort];
+      if (x === null || x === undefined) return 1;
+      if (y === null || y === undefined) return -1;
+      return (x - y) * (state.asc ? 1 : -1);
+    });
+    const th = (k, t, cls) => {
+      const on = state.sort === k;
+      return '<th scope="col" class="' + (cls || '') + '"' + (on ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button></th>';
+    };
+    let html = '<table><thead><tr>' + th('name', '社群暱稱') + cols.map(c => th(c.k, c.t, c.cls)).join('') + '</tr></thead><tbody>';
+    if (!rows.length) html += '<tr><td colspan="' + (cols.length + 1) + '" class="empty">找不到這個暱稱</td></tr>';
+    rows.forEach(m => {
+      const age = newest - ms(m.updated);
+      let chip = '';
+      if (m.flag) chip += '<span class="chip warn" title="單期漲跌超過 8%，可能有出入金">待確認</span>';
+      if (holding(m)) chip += '<span class="chip hold">有部位</span>';
+      if (m.updated && age > 6 * 3600e3) chip += '<span class="chip">' + (age > 2 * 86400e3 ? Math.floor(age / 86400e3) + ' 天沒更新' : Math.floor(age / 3600e3) + ' 小時沒更新') + '</span>';
+      html += '<tr><td class="name" title="' + esc(m.name) + '">' + esc(m.name) + chip + '</td>' + cols.map(c => {
+        const cl = [c.color ? tone(m[c.k]) : '', c.strong ? 'strong' : '', c.cls2 || ''].join(' ').trim();
+        return '<td' + (cl ? ' class="' + cl + '"' : '') + '>' + c.f(m[c.k]) + '</td>';
+      }).join('') + '</tr>';
+    });
+    $('table').innerHTML = html + '</tbody></table>';
+    $('table-note').textContent = '共 ' + d.members.length + ' 位，人數跟著試算表自動增減。點欄位名稱可以排序。';
+  }
+
+  // 走勢圖
+  const SERIES_AVG = '優化平均';
+  function seriesList(h) {
+    const past = [], live = [];
+    h.contracts.forEach(c => {
+      const friday = c.settle === '五';
+      if (c.live) live.push({ name: c.name, days: c.days, data: c.data, color: friday ? 'var(--coin-deep)' : 'var(--indigo)', w: 3.2, main: true, gap: 4, live: true, last: c.last });
+      else past.push({ name: c.name, days: c.days, data: c.data, color: friday ? 'var(--fri-past)' : 'var(--past)', w: 1.3 });
+    });
+    return past.reverse().concat([{ name: SERIES_AVG, days: h.avg.days, data: h.avg.data, color: 'var(--ink)', w: 2.2, main: true, isAvg: true }], live);
+  }
+
+  // 天數由大到小排，找離 d 最近的一點；隔太遠（週末沒開盤）就當沒有
+  function valueAt(s, d) {
+    let lo = 0, hi = s.days.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (s.days[mid] > d) lo = mid + 1; else hi = mid; }
+    const i = lo > 0 && Math.abs(s.days[lo - 1] - d) < Math.abs(s.days[lo] - d) ? lo - 1 : lo;
+    return Math.abs(s.days[i] - d) <= .12 ? s.data[i] : null;
+  }
+
+  function renderLegend(h) {
+    const list = seriesList(h).slice().reverse();
+    $('legend').innerHTML = list.map(s =>
+      '<button class="lg" data-s="' + esc(s.name) + '" aria-pressed="' + (!state.off[s.name]) + '"><i style="--c:' + s.color + '"></i>' + esc(s.name) + '</button>').join('');
+  }
+
+  function renderChart(h) {
+    const box = $('chart');
+    if (!h || !h.contracts.length) { box.innerHTML = '<div class="empty">還沒有時間價值資料。</div>'; return; }
+    const W = Math.max(320, box.clientWidth - 16), H = W < 560 ? 300 : 380;
+    const m = { l: 50, r: 16, t: 26, b: 26 };
+    const MAX_DAYS = 7;
+    const x = d => m.l + (MAX_DAYS - d) / MAX_DAYS * (W - m.l - m.r);
+    const list = seriesList(h).filter(s => !state.off[s.name]);
+    // 即時值偶爾有跳點，上限看過去幾期和生命線，跳點超出就切掉
+    const base = [], liveVals = [];
+    list.forEach(s => s.data.forEach(v => { if (v !== null) (s.live ? liveVals : base).push(v); }));
+    liveVals.sort((a, b) => a - b);
+    const top = Math.max(base.length ? Math.max.apply(null, base) : 0, liveVals.length ? liveVals[Math.floor(liveVals.length * .97)] : 0, 1000);
+    const yMax = Math.ceil(top / 10000) * 10000;
+    const y = v => m.t + (1 - Math.min(v, yMax * 1.02) / yMax) * (H - m.t - m.b);
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="時間價值走勢，橫軸是離結算還剩幾天" id="tv-svg">';
+    for (let d = MAX_DAYS; d >= 0; d--) {
+      svg += '<line x1="' + x(d) + '" x2="' + x(d) + '" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--line)"/>';
+      const label = d === 0 ? '結算' : W < 560 ? d + '天' : '剩 ' + d + ' 天';
+      svg += '<text x="' + x(d) + '" y="' + (H - 8) + '" text-anchor="' + (d === 0 ? 'end' : d === MAX_DAYS ? 'start' : 'middle') + '">' + label + '</text>';
+    }
+    for (let v = 0; v <= yMax; v += yMax > 50000 ? 20000 : 10000) {
+      svg += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--line)"/>';
+      svg += '<text x="' + (m.l - 7) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + int(v) + '</text>';
+    }
+    list.forEach(s => {
+      const gap = s.gap || 2;
+      let d = '', pen = false, missed = 0;
+      s.data.forEach((v, i) => {
+        if (v === null || v === undefined) { if (++missed >= gap) pen = false; return; }
+        missed = 0;
+        if (i && s.days[i - 1] - s.days[i] > .5) pen = false;  // 週末沒開盤，線斷開
+        d += (pen ? 'L' : 'M') + x(s.days[i]).toFixed(1) + ' ' + y(v).toFixed(1);
+        pen = true;
+      });
+      const dim = state.eraseOn && s.name !== state.eraseName;
+      svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="' + s.w + '"' + (dim ? ' opacity=".3"' : '') + ' stroke-linejoin="round" stroke-linecap="round"/>';
+    });
+    // 現在的位置
+    list.filter(s => s.live && s.last).forEach(s => {
+      const px = x(s.last.days), py = y(s.last.value);
+      const right = px < W * .68;
+      const ink = s.color === 'var(--indigo)' ? 'var(--indigo)' : 'var(--ink)';
+      svg += '<line x1="' + px + '" x2="' + px + '" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="' + s.color + '" stroke-dasharray="3 4"/>';
+      svg += '<circle cx="' + px + '" cy="' + py + '" r="6" fill="' + s.color + '" stroke="var(--white)" stroke-width="2"/>';
+      svg += '<text class="tag" x="' + (px + (right ? 10 : -10)) + '" y="' + (Math.max(m.t + 12, py - 12)) + '" text-anchor="' + (right ? 'start' : 'end') + '" style="fill:' + ink + '">' + esc(s.name) + ' ' + int(s.last.value) + '</text>';
+    });
+    svg += '<rect id="erase-rect" fill="var(--coin)" fill-opacity=".35" stroke="var(--ink)" stroke-dasharray="4 3" visibility="hidden"/>';
+    svg += '<line id="tv-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/></svg>';
+    box.innerHTML = svg + '<div class="tip" id="tv-tip" hidden></div>';
+
+    const el = $('tv-svg'), tip = $('tv-tip'), cross = $('tv-cross');
+    const move = e => {
+      const r = el.getBoundingClientRect();
+      const sx = (e.clientX - r.left) / r.width * W;
+      const d = Math.max(0, Math.min(MAX_DAYS, MAX_DAYS - (sx - m.l) / (W - m.l - m.r) * MAX_DAYS));
+      cross.setAttribute('x1', x(d)); cross.setAttribute('x2', x(d)); cross.setAttribute('visibility', 'visible');
+      const vals = list.map(s => ({ s: s, v: valueAt(s, d) })).filter(o => o.v !== null && o.v !== undefined);
+      const main = vals.filter(o => o.s.main), rest = vals.filter(o => !o.s.main).sort((a, b) => b.v - a.v);
+      tip.innerHTML = '<b>' + daysText(d) + '</b>' + (vals.length ? main.reverse().concat(rest).map(o => '<div><span style="--c:' + o.s.color + '"><i></i>' + esc(o.s.name) + '</span><span>' + int(o.v) + '</span></div>').join('') : '<div>這段沒有開盤</div>');
+      tip.hidden = false;
+      const px = x(d) / W * r.width;
+      tip.style.left = (px > r.width * .55 ? px - tip.offsetWidth - 2 : px + 22) + 'px';
+    };
+    if (!state.eraseOn) {
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerleave', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+      return;
+    }
+    // 橡皮擦：拖一個框，框到的那條線的點才會擦掉
+    el.style.touchAction = 'none';
+    el.style.cursor = 'crosshair';
+    const rect = $('erase-rect');
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
+    const clampX = v => Math.max(m.l, Math.min(W - m.r, v)), clampY = v => Math.max(m.t, Math.min(H - m.b, v));
+    let start = null;
+    el.addEventListener('pointerdown', e => { start = pos(e); el.setPointerCapture(e.pointerId); state.erasePending = null; renderEraseBar(); });
+    el.addEventListener('pointermove', e => {
+      if (!start) return;
+      const p = pos(e);
+      rect.setAttribute('x', clampX(Math.min(start.x, p.x))); rect.setAttribute('y', clampY(Math.min(start.y, p.y)));
+      rect.setAttribute('width', Math.abs(clampX(p.x) - clampX(start.x))); rect.setAttribute('height', Math.abs(clampY(p.y) - clampY(start.y)));
+      rect.setAttribute('visibility', 'visible');
+    });
+    el.addEventListener('pointerup', e => {
+      if (!start) return;
+      const p = pos(e);
+      const dayOf = px => MAX_DAYS - (clampX(px) - m.l) / (W - m.l - m.r) * MAX_DAYS;
+      const valOf = py => (1 - (clampY(py) - m.t) / (H - m.t - m.b)) * yMax;
+      const top_ = Math.min(start.y, p.y);
+      const box_ = {
+        name: state.eraseName,
+        from: Math.min(dayOf(start.x), dayOf(p.x)), to: Math.max(dayOf(start.x), dayOf(p.x)),
+        lo: Math.min(valOf(start.y), valOf(p.y)),
+        hi: top_ <= m.t + 2 ? 1e9 : Math.max(valOf(start.y), valOf(p.y)),  // 框到最上面就連超出圖的跳點一起擦
+      };
+      start = null;
+      const s = list.find(x => x.name === box_.name);
+      box_.count = s ? s.days.filter((d, i) => d >= box_.from && d <= box_.to && s.data[i] !== null && s.data[i] >= box_.lo && s.data[i] <= box_.hi).length : 0;
+      state.erasePending = box_;
+      renderEraseBar();
+    });
+  }
+
+  function renderEraseBar() {
+    const bar = $('erase-bar'), h = state.data && state.data.history;
+    bar.hidden = !state.eraseOn || !h;
+    if (bar.hidden) return;
+    const names = seriesList(h).filter(s => !s.isAvg).reverse().map(s => s.name);
+    if (names.indexOf(state.eraseName) < 0) state.eraseName = names[0];
+    const p = state.erasePending;
+    let html = '<label for="erase-series">要擦哪條線</label><select class="btn" id="erase-series">' + names.map(n => '<option' + (n === state.eraseName ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>';
+    if (!p) html += '<span>在圖上拖一個框，框住要擦掉的點。</span>';
+    else if (!p.count) html += '<span>這個框裡沒有這條線的點，再框一次。</span>';
+    else html += '<span>擦掉 ' + esc(p.name) + ' 的 <b>' + p.count + '</b> 個點（剩 ' + p.from.toFixed(2) + '～' + p.to.toFixed(2) + ' 天）？</span><button class="btn do" id="erase-do">擦掉</button><button class="btn" id="erase-cancel">取消</button>';
+    html += '<button class="btn" id="erase-undo"' + (state.erasedCount ? '' : ' disabled') + '>復原上一步</button>';
+    bar.innerHTML = html;
+  }
+
+  async function eraseSend(body) {
+    body.token = getToken();
+    const res = await api(body);
+    if (!res.ok) { $('erase-bar').insertAdjacentHTML('beforeend', '<span class="loss">沒有擦成功，可能沒有權限或連不上。</span>'); return false; }
+    state.erasePending = null;
+    if (window.MON_SNAPSHOT) { state.data = window.MON_SNAPSHOT; renderAll(); } else await load(true);
+    return true;
+  }
+
+  function renderVix(v) {
+    const box = $('vix-chart'), stats = $('vix-stats');
+    if (!v || !v.daily.length) { stats.innerHTML = ''; box.innerHTML = '<div class="empty">還沒有 VIX 資料。程式裝好後會先補近 3 個月的收盤。</div>'; return; }
+    const pts = v.daily, vals = pts.map(p => p[1]);
+    const hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
+    const now = v.live ? v.live.v : vals[vals.length - 1];
+    const below = vals.filter(x => x < now).length;
+    const fmtDay = s => s.slice(5, 10);
+    stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span><span>最高<b>' + hi.toFixed(2) + '</b></span><span>最低<b>' + lo.toFixed(2) + '</b></span><span>比圖上 ' + Math.round(below / vals.length * 100) + '% 的日子高</span>';
+    const W = Math.max(320, box.clientWidth - 16), H = W < 560 ? 220 : 260;
+    const m = { l: 40, r: 16, t: 18, b: 26 };
+    const n = pts.length;
+    const x = i => m.l + (n > 1 ? i / (n - 1) : 0) * (W - m.l - m.r);
+    const yLo = Math.floor(lo / 5) * 5, yHi = Math.ceil(hi / 5) * 5 || 5;
+    const y = val => m.t + (1 - (val - yLo) / (yHi - yLo || 1)) * (H - m.t - m.b);
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="VIX 每日走勢" id="vix-svg">';
+    for (let t = yLo; t <= yHi; t += 5) {
+      svg += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="var(--line)"/><text x="' + (m.l - 7) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + t + '</text>';
+    }
+    let lastMonth = '';
+    pts.forEach((p, i) => {
+      const mon = p[0].slice(5, 7);
+      if (mon !== lastMonth) {
+        if (lastMonth || i < 3) svg += '<text x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + (i ? 'middle' : 'start') + '">' + (+mon) + ' 月</text>';
+        lastMonth = mon;
+      }
+    });
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p[1]).toFixed(1)).join('');
+    svg += '<path d="' + line + 'L' + x(n - 1).toFixed(1) + ' ' + (H - m.b) + 'L' + x(0).toFixed(1) + ' ' + (H - m.b) + 'Z" fill="var(--sky)" opacity=".6"/>';
+    svg += '<path d="' + line + '" fill="none" stroke="var(--indigo)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+    const ex = x(n - 1), ey = y(vals[n - 1]);
+    svg += '<circle cx="' + ex + '" cy="' + ey + '" r="5.5" fill="var(--indigo)" stroke="var(--white)" stroke-width="2"/>';
+    svg += '<text class="tag" x="' + (ex - 10) + '" y="' + Math.max(m.t + 12, ey - 12) + '" text-anchor="end" style="fill:var(--indigo)">' + vals[n - 1].toFixed(2) + '</text>';
+    svg += '<line id="vix-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/></svg>';
+    box.innerHTML = svg + '<div class="tip" id="vix-tip" hidden></div>';
+    const el = $('vix-svg'), tip = $('vix-tip'), cross = $('vix-cross');
+    el.addEventListener('pointermove', e => {
+      const r = el.getBoundingClientRect();
+      const i = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - r.left) / r.width * W - m.l) / (W - m.l - m.r) * (n - 1))));
+      cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+      tip.innerHTML = '<b>' + fmtDay(pts[i][0]) + '</b><div><span>VIX</span><span>' + pts[i][1].toFixed(2) + '</span></div>';
+      tip.hidden = false;
+      const px = x(i) / W * r.width;
+      tip.style.left = (px > r.width * .55 ? px - tip.offsetWidth - 2 : px + 22) + 'px';
+    });
+    el.addEventListener('pointerleave', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+  }
+
+  // 每盤、每週比較
+  function periodsOf(d) { return state.mode === 'week' ? d.weeks : d.sessions; }
+
+  function renderCompare(d) {
+    if (!state.mode) state.mode = d.sessions.length ? 'session' : 'now';
+    document.querySelectorAll('#mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.mode));
+    document.querySelectorAll('#metric button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.metric));
+    const sel = $('period');
+    const isNow = state.mode === 'now';
+    const periods = isNow ? [] : periodsOf(d);
+    sel.hidden = isNow || !periods.length;
+    if (!isNow) {
+      if (state.period === null || state.period >= periods.length) state.period = periods.length - 1;
+      sel.innerHTML = periods.map((p, i) => '<option value="' + i + '"' + (i === state.period ? ' selected' : '') + '>' + esc(p.label) + '</option>').join('');
+    }
+    $('cmp-banner').innerHTML = d.demoHistory && !isNow
+      ? '<div class="banner"><span>範例畫面：這裡的人名和數字都是假的。</span><span>正式紀錄從裝好程式那天開始，每次收盤自動累積。</span></div>' : '';
+    $('cmp-desc').textContent = isNow
+      ? '起始資產到現在的累積，直接用試算表的獲利金額和獲利率。'
+      : state.mode === 'week' ? '結算週從週三下午算到下週三，損益已扣掉登記的出入金。' : '早盤看 13:45 收盤，夜盤看隔天 05:00 收盤，損益已扣掉登記的出入金。';
+
+    const raw = isNow ? d.members.map(m => ({ name: m.name, pnl: m.pnl || 0, pct: m.pct || 0, flag: m.flag }))
+      : periods.length ? periods[state.period].rows : [];
+    const unit = state.mode === 'week' ? '這週' : isNow ? '目前' : '這盤';
+    if (!raw.length) {
+      $('podium').innerHTML = '';
+      $('ranks').innerHTML = '<div class="empty">還沒有紀錄。裝好程式後，下一次收盤就會出現第一筆比較。</div>';
+      $('matrix-wrap').innerHTML = '';
+      return;
+    }
+    const key = state.metric;
+    const fmt = key === 'pct' ? pct : signed;
+    const other = key === 'pct' ? signed : pct;
+    const rows = raw.slice().sort((a, b) => (a.flag - b.flag) || (b[key] - a[key]));
+    const clean = rows.filter(r => !r.flag);
+    const best = clean[0], worst = clean[clean.length - 1];
+    const up = clean.filter(r => r.pnl > 0).length, down = clean.filter(r => r.pnl < 0).length;
+    $('podium').innerHTML =
+      '<div class="medal top"><small>' + unit + '賺最多</small><strong>' + esc(best.name) + '</strong><span class="num ' + tone(best[key]) + '">' + fmt(best[key]) + '</span><em class="num">' + other(best[key === 'pct' ? 'pnl' : 'pct']) + '</em></div>' +
+      '<div class="medal"><small>' + unit + '賠最多</small><strong>' + esc(worst.name) + '</strong><span class="num ' + tone(worst[key]) + '">' + fmt(worst[key]) + '</span><em class="num">' + other(worst[key === 'pct' ? 'pnl' : 'pct']) + '</em></div>' +
+      '<div class="medal"><small>' + unit + '全隊</small><strong><span class="num">' + up + '</span> 人賺，<span class="num">' + down + '</span> 人賠</strong><span class="num ' + tone(sum(clean, r => r.pnl)) + '">' + signed(sum(clean, r => r.pnl)) + '</span></div>';
+
+    const scale = Math.max.apply(null, clean.map(r => Math.abs(r[key])).concat(key === 'pct' ? .01 : 1));
+    const row = (r, i) => {
+      const w = Math.min(100, Math.abs(r[key]) / scale * 100);
+      const up_ = r[key] >= 0;
+      return '<div class="bar-row' + (r.flag ? ' flag' : '') + '"><span class="pos">' + (r.flag ? '' : i + 1) + '</span><span class="who" title="' + esc(r.name) + '">' + esc(r.name) + (r.flag ? '<span class="chip warn">待確認</span>' : '') + '</span>' +
+        '<div class="axis" role="img" aria-label="' + esc(r.name) + ' ' + fmt(r[key]) + '"><i' + (up_ ? ' class="up"' : '') + ' style="width:' + w + '%"></i></div>' +
+        '<span class="val ' + (r.flag ? '' : tone(r[key])) + '">' + fmt(r[key]) + '</span></div>';
+    };
+    let body = '';
+    const LIMIT = 16;
+    if (state.showAllRanks || clean.length <= LIMIT) body = rows.map(row).join('');
+    else {
+      const flags = rows.filter(r => r.flag);
+      body = clean.slice(0, 6).map(row).join('') + '<div class="gap-note">中間還有 ' + (clean.length - 12) + ' 位</div>' +
+        clean.slice(-6).map((r, i) => row(r, clean.length - 6 + i)).join('') + flags.map(row).join('');
+    }
+    if (clean.length > LIMIT) body += '<div class="more"><button class="btn" id="more-ranks">' + (state.showAllRanks ? '只看前後 6 名' : '看全部 ' + rows.length + ' 位') + '</button></div>';
+    $('ranks').innerHTML = body;
+    renderMatrix(d, isNow);
+  }
+
+  // 連續幾期放在一起看誰常賺：格子顏色深淺是賺賠大小，合計看最近這幾期
+  function renderMatrix(d, isNow) {
+    const wrap = $('matrix-wrap');
+    if (isNow) { wrap.innerHTML = ''; return; }
+    const periods = periodsOf(d).slice(-10);
+    if (periods.length < 2) { wrap.innerHTML = ''; return; }
+    const key = state.metric, fmt = key === 'pct' ? pct : signed;
+    const people = {};
+    periods.forEach((p, j) => p.rows.forEach(r => {
+      const q = people[r.name] || (people[r.name] = { name: r.name, cells: {}, pnl: 0, base: r.base, wins: 0, played: 0 });
+      q.cells[j] = r;
+      if (r.flag) return;  // 待確認的那期不算進合計
+      q.pnl += r.pnl;
+      q.played++;
+      if (r.pnl > 0) q.wins++;
+    }));
+    const list = Object.keys(people).map(n => people[n]);
+    list.forEach(q => { q.total = key === 'pct' ? (q.base ? q.pnl / q.base * 100 : 0) : q.pnl; });
+    list.sort((a, b) => b.total - a.total);
+    const all = [];
+    list.forEach(q => Object.keys(q.cells).forEach(j => { if (!q.cells[j].flag) all.push(Math.abs(q.cells[j][key])); }));
+    const scale = Math.max.apply(null, all.concat(.01));
+    const bg = r => {
+      if (r.flag) return 'background:var(--kraft)';
+      const a = Math.min(1, Math.abs(r[key]) / scale);
+      const op = (.08 + a * .55).toFixed(2);
+      return 'background:color-mix(in srgb, ' + (r[key] >= 0 ? 'var(--gain)' : 'var(--loss)') + ' ' + Math.round(op * 100) + '%, var(--white));' + (op > .4 ? 'color:var(--white)' : '');
+    };
+    let html = '<h3>最近 ' + periods.length + (state.mode === 'week' ? ' 週' : ' 盤') + '排排看</h3><div class="card"><div class="scroll"><table class="matrix"><thead><tr><th scope="col">社群暱稱</th>' +
+      periods.map(p => '<th scope="col">' + esc(p.label.replace(' 週', '').replace('早盤', '早').replace('夜盤', '夜')) + '</th>').join('') + '<th scope="col">合計</th><th scope="col">賺的次數</th></tr></thead><tbody>';
+    list.forEach(q => {
+      html += '<tr><td class="name" title="' + esc(q.name) + '">' + esc(q.name) + '</td>' + periods.map((p, j) => {
+        const r = q.cells[j];
+        return r ? '<td class="cell" style="' + bg(r) + '">' + (r.flag ? '待確認' : fmt(r[key])) + '</td>' : '<td class="cell" style="color:var(--muted)">–</td>';
+      }).join('') + '<td class="strong ' + tone(q.total) + '">' + fmt(q.total) + '</td><td>' + q.wins + ' / ' + q.played + '</td></tr>';
+    });
+    wrap.innerHTML = html + '</tbody></table></div></div>';
+  }
+
+  function renderStatus() {
+    const d = state.data;
+    if (d && d.previewNote) { $('live-text').textContent = d.previewNote; return; }
+    const stale = state.lastOk && Date.now() - state.lastOk > REFRESH_MS * 3;
+    $('live-dot').classList.toggle('off', !!stale);
+    $('live-text').textContent = stale ? '讀不到試算表，停在 ' + new Date(state.lastOk).toTimeString().slice(0, 5)
+      : state.lastOk ? '每分鐘更新，最後 ' + new Date(state.lastOk).toTimeString().slice(0, 5) : '讀取中';
+  }
+
+  function renderAll() {
+    const d = state.data;
+    if (!d) return;
+    renderTiles(d);
+    renderTable(d);
+    $('erase-toggle').hidden = !state.canErase;
+    if (d.history) {
+      renderLegend(d.history); renderChart(d.history); renderEraseBar();
+      $('tv-note').textContent = '週三、週五都以 KGI 的值為主，抓不到或跳太遠才用超級電腦補，兩邊都不可信就留空，再做 10 分鐘平滑。週五的過去合約從程式裝好那週開始累積。';
+    }
+    renderVix(d.vix);
+    renderCompare(d);
+    renderStatus();
+  }
+
+  // 開通：Email → 驗證碼 → 通行證存在這台裝置，之後不用再輸入；在開通名單取消打勾就失效
+  const TOKEN_KEY = 'joption-monitor-token';
+  function getToken() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return state.token || null; } }
+  function setToken(t) {
+    state.token = t;
+    try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) { /* 無痕模式存不了，只在這次有效 */ }
+  }
+  async function api(body) {
+    if (window.MON_SNAPSHOT) {  // 預覽頁不連線
+      if (body.action === 'erase' || body.action === 'unerase') return window.MON_PREVIEW.apply(body);
+      return body.action === 'verify' ? { ok: true, token: 'preview' } : { ok: true };
+    }
+    const r = await fetch(DATA_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }
+  function showGate(on) {
+    $('gate').hidden = !on;
+    $('app').hidden = on;
+    $('logout').hidden = on || !!window.MON_SNAPSHOT;
+    $('preview-gate').hidden = on || !window.MON_SNAPSHOT;
+    if (on) {
+      $('index-pill').hidden = true; $('vix-pill').hidden = true;
+      $('live-dot').classList.add('off'); $('live-text').textContent = '需要開通';
+    }
+  }
+
+  // 切換分頁、手機切 App 會連續觸發重新整理，同時只抓一次、30 秒內不重抓，才不會把 Google 額度用光
+  let loading = false, lastFetch = 0;
+  async function load(force) {
+    if (window.MON_SNAPSHOT) {
+      if (state.gateDemo) return;
+      if (state.data) return;  // 預覽資料不會變，不用每分鐘重畫，也才不會打斷橡皮擦
+      state.canErase = true;
+      state.data = window.MON_SNAPSHOT; state.lastOk = Date.now(); showGate(false); renderAll(); return;
+    }
+    if (!DATA_URL) { $('live-text').textContent = '還沒接上試算表'; $('live-dot').classList.add('off'); return; }
+    const token = getToken();
+    if (!token) { state.data = null; showGate(true); return; }
+    if (loading || (state.data && (document.hidden || (force !== true && Date.now() - lastFetch < 30000)))) return;
+    loading = true;
+    lastFetch = Date.now();
+    try {
+      const res = await api({ action: 'data', token: token });
+      if (!res.ok) { setToken(null); state.data = null; showGate(true); return; }
+      state.data = res.data;
+      state.canErase = !!res.canErase;
+      if (!state.canErase) state.eraseOn = false;
+      state.lastOk = Date.now();
+      showGate(false);
+      renderAll();
+    } catch (e) { if (state.data) renderStatus(); else { $('live-text').textContent = '讀不到資料，等一下會再試'; } }
+    finally { loading = false; }
+  }
+
+  $('gate-email').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    state.email = $('gate-email-input').value.trim();
+    btn.disabled = true; btn.textContent = '寄送中';
+    try {
+      const res = await api({ action: 'request', email: state.email });
+      if (!res.ok && res.msg) throw new Error(res.msg);
+      $('gate-sent').textContent = '如果 ' + state.email + ' 已經開通，驗證碼一分鐘內會寄到，也看一下垃圾信件匣。還沒開通的話，申請已經記下來，等歐大開通後再回來收一次驗證碼。';
+      $('gate-email').hidden = true; $('gate-code').hidden = false; $('gate-err').hidden = true;
+      $('gate-code-input').value = ''; $('gate-code-input').focus();
+    } catch (err) {
+      $('gate-sent').textContent = '';
+      alertGate(err.message === 'Email 格式不對' ? 'Email 格式不對，再檢查一下。' : '現在寄不出去，等一下再試一次。');
+    }
+    btn.disabled = false; btn.textContent = '寄驗證碼';
+  });
+  function alertGate(msg) {
+    let el = $('gate-email').querySelector('.err');
+    if (!el) { el = document.createElement('p'); el.className = 'err'; $('gate-email').insertBefore(el, $('gate-email').querySelector('button')); }
+    el.textContent = msg;
+  }
+  $('gate-code').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try {
+      const res = await api({ action: 'verify', email: state.email, code: $('gate-code-input').value });
+      if (!res.ok) { $('gate-err').textContent = '驗證碼不對或過期了，再試一次，或重寄一組。'; $('gate-err').hidden = false; }
+      else {
+        if (window.MON_SNAPSHOT) state.gateDemo = false; else setToken(res.token);
+        $('gate-email').hidden = false; $('gate-code').hidden = true;
+        await load(true);
+      }
+    } catch (err) { $('gate-err').textContent = '現在連不上，等一下再試一次。'; $('gate-err').hidden = false; }
+    btn.disabled = false;
+  });
+  $('gate-back').addEventListener('click', () => { $('gate-email').hidden = false; $('gate-code').hidden = true; });
+  $('logout').addEventListener('click', () => { setToken(null); state.data = null; showGate(true); });
+  $('preview-gate').addEventListener('click', () => { state.gateDemo = true; showGate(true); });
+
+  // 事件
+  $('search').addEventListener('input', e => { state.q = e.target.value; if (state.data) renderTable(state.data); });
+  $('toggle-all').addEventListener('click', e => {
+    state.all = !state.all;
+    e.currentTarget.setAttribute('aria-pressed', state.all);
+    e.currentTarget.textContent = state.all ? '只看重點欄位' : '顯示全部欄位';
+    renderTable(state.data);
+  });
+  $('table').addEventListener('click', e => {
+    const b = e.target.closest('button[data-sort]');
+    if (!b) return;
+    const k = b.dataset.sort;
+    if (state.sort === k) state.asc = !state.asc; else { state.sort = k; state.asc = k === 'name'; }
+    renderTable(state.data);
+  });
+  $('erase-toggle').addEventListener('click', e => {
+    state.eraseOn = !state.eraseOn;
+    state.erasePending = null;
+    e.currentTarget.setAttribute('aria-pressed', state.eraseOn);
+    renderChart(state.data.history); renderEraseBar();
+  });
+  $('erase-bar').addEventListener('change', e => {
+    if (e.target.id !== 'erase-series') return;
+    state.eraseName = e.target.value; state.erasePending = null;
+    renderChart(state.data.history); renderEraseBar();
+  });
+  $('erase-bar').addEventListener('click', async e => {
+    if (e.target.id === 'erase-cancel') { state.erasePending = null; renderChart(state.data.history); renderEraseBar(); }
+    if (e.target.id === 'erase-do') {
+      const p = state.erasePending;
+      if (await eraseSend({ action: 'erase', name: p.name, from: p.from, to: p.to, lo: p.lo, hi: p.hi })) { state.erasedCount = (state.erasedCount || 0) + 1; renderEraseBar(); }
+    }
+    if (e.target.id === 'erase-undo') {
+      if (await eraseSend({ action: 'unerase' })) { state.erasedCount = Math.max(0, state.erasedCount - 1); renderEraseBar(); }
+    }
+  });
+  $('legend').addEventListener('click', e => {
+    const b = e.target.closest('.lg');
+    if (!b) return;
+    state.off[b.dataset.s] = !state.off[b.dataset.s];
+    renderLegend(state.data.history); renderChart(state.data.history);
+  });
+  $('mode').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    state.mode = b.dataset.v; state.period = null; state.showAllRanks = false;
+    renderCompare(state.data);
+  });
+  $('metric').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    state.metric = b.dataset.v;
+    renderCompare(state.data);
+  });
+  $('period').addEventListener('change', e => { state.period = +e.target.value; renderCompare(state.data); });
+  $('ranks').addEventListener('click', e => {
+    if (e.target.id !== 'more-ranks') return;
+    state.showAllRanks = !state.showAllRanks;
+    renderCompare(state.data);
+  });
+  let resizeTimer = null, lastW = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (state.data && state.data.history && innerWidth !== lastW) { lastW = innerWidth; renderChart(state.data.history); renderVix(state.data.vix); }
+    }, 150);
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+
+  load();
+  setInterval(() => load(), REFRESH_MS);
+  setInterval(renderStatus, 30000);
+})();
+</script>
+</body>
+</html>
