@@ -759,7 +759,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (loading || (state.data && (document.hidden || (force !== true && Date.now() - lastFetch < 30000)))) return;
     loading = true;
     lastFetch = Date.now();
-    if (!state.data) { $('gate').hidden = true; $('loading').hidden = false; }
+    if (!state.data) {
+      $('gate').hidden = true; $('loading').hidden = false;
+      $('live-dot').classList.remove('off'); $('live-text').textContent = '讀取中';
+    }
     try {
       const res = await api({ action: 'data', token: token });
       if (!res.ok) { setToken(null); state.data = null; showGate(true); return; }
