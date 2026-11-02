@@ -164,6 +164,7 @@ td.when { color: var(--muted); font-size: 13px; }
 .chg-d1 { background: #cdeedd; color: #075a36; }
 .chg-d2 { background: #3fa874; color: var(--white); }
 .chg-d3 { background: #075a36; color: var(--white); }
+.h-note { margin-left: 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
 .tip small { margin-left: 8px; color: var(--muted); font-size: 12px; }
 .lg i.dash { border-top-style: dashed; }
 .lg[aria-pressed="false"] { opacity: .45; }
@@ -1175,7 +1176,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const op = (.08 + a * .55).toFixed(2);
       return 'background:color-mix(in srgb, ' + (r[key] >= 0 ? 'var(--gain)' : 'var(--loss)') + ' ' + Math.round(op * 100) + '%, var(--white));' + (op > .4 ? 'color:var(--white)' : '');
     };
-    let html = '<h3>最近 ' + periods.length + (state.mode === 'week' ? ' 週' : ' 盤') + '排排看</h3><div class="card"><div class="scroll"><table class="matrix"><thead><tr><th scope="col">社群暱稱</th>' +
+    // 固定看最近 10 期，每收一期就往前推；紀錄還不到 10 期時註明從哪天開始記
+    const per = state.mode === 'week' ? '週' : '盤', recorded = periodsOf(d);
+    const note = recorded.length >= 10 ? '' : (!state.canHistory ? '這週目前 ' : '從 ' + esc(recorded[0].label.replace('（即時）', '')) + ' 開始記錄，目前 ') + recorded.length + ' ' + per + '，之後每收一' + per + '就往前推';
+    let html = '<h3>最近 10 ' + per + '排排看' + (note ? '<small class="h-note">' + note + '</small>' : '') + '</h3><div class="card"><div class="scroll"><table class="matrix"><thead><tr><th scope="col">社群暱稱</th>' +
       periods.map(p => '<th scope="col">' + esc(p.label.replace(' 週', '').replace('早盤', '早').replace('夜盤', '夜')) + '</th>').join('') + '<th scope="col">合計</th><th scope="col">賺的次數</th></tr></thead><tbody>';
     list.forEach(q => {
       html += '<tr><td class="name" title="' + esc(q.name) + '">' + esc(q.name) + '</td>' + periods.map((p, j) => {
