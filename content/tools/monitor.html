@@ -448,6 +448,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return '剩 ' + (h === 24 ? day + 1 : day) + ' 天' + (h && h !== 24 ? ' ' + h + ' 小時' : '');
   }
 
+  const colRank = k => { const i = state.colOrder.indexOf(k); return i < 0 ? 1000 : i; };
   // 夜盤跨午夜，凌晨的時間要排在晚上之後
   function timeKey(t) {
     const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
@@ -462,7 +463,6 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   function renderTable(d) {
     // 欄位照自己拖的順序，新欄位或沒拖過的接在原本的位置
-    const colRank = k => { const i = state.colOrder.indexOf(k); return i < 0 ? 1000 : i; };
     const cols = (state.all ? COLS.concat(MORE_COLS) : COLS)
       .filter(c => !c.sessionOnly || state.view === 'session')
       .map((c, i) => [c, i]).sort((a, b) => (colRank(a[0].k) - colRank(b[0].k)) || (a[1] - b[1])).map(x => x[0]);
@@ -1060,8 +1060,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (to !== from) {
         const keys = ths.slice(1).map(t => t.dataset.col);
         keys.splice(to - 1, 0, keys.splice(from - 1, 1)[0]);
-        // 只顯示部分欄位時，沒看到的欄位順序要留著
-        state.colOrder = keys.concat(state.colOrder.filter(k => keys.indexOf(k) < 0));
+        // 只換看得到的欄位，沒看到的欄位留在原本的位置
+        const all = COLS.concat(MORE_COLS).map((c, i) => [c.k, i]).sort((a, b) => (colRank(a[0]) - colRank(b[0])) || (a[1] - b[1])).map(x => x[0]);
+        let next = 0;
+        state.colOrder = all.map(k => keys.indexOf(k) < 0 ? k : keys[next++]);
         try { localStorage.setItem(COLS_KEY, JSON.stringify(state.colOrder)); } catch (x) { /* 這次有效就好 */ }
       }
       renderTable(state.data);
