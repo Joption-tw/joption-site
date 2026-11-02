@@ -95,6 +95,11 @@ td.name { font-weight: 700; }
 .grip:hover { background: var(--coin); color: var(--ink); }
 tr.dragging td { background: var(--sky) !important; }
 tr.dragging .grip { cursor: grabbing; }
+th[data-col]:not([data-col="order"]) { cursor: grab; user-select: none; -webkit-user-select: none; }
+th.col-drag { background: var(--sky) !important; cursor: grabbing; }
+th.col-left { box-shadow: inset 3px 0 0 var(--indigo); }
+th.col-right { box-shadow: inset -3px 0 0 var(--indigo); }
+.chip.hold0 { background: var(--kraft); margin-left: 0; }
 tr.drop-above td { box-shadow: inset 0 3px 0 var(--indigo); }
 tr.drop-below td { box-shadow: inset 0 -3px 0 var(--indigo); }
 .drag-hint { margin-left: 10px; color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -237,7 +242,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         </div>
         <button class="btn" id="toggle-all" aria-pressed="false">顯示全部欄位</button>
       </div>
-      <p>順序可以自己排：按住暱稱左邊的 ⋮⋮ 上下拖曳，放開就記住了，下次打開還是你排的順序。每個人排自己的，不會影響別人。</p>
+      <p>順序可以自己排：按住暱稱左邊的 ⋮⋮ 上下拖曳同學，用滑鼠按住欄位名稱左右拖曳欄位，放開就記住了，下次打開還是你排的順序。每個人排自己的，不會影響別人。進場、出場時間約每 3 分鐘比對一次口數，有幾分鐘誤差。</p>
     </div>
     <div class="card"><div class="scroll" id="table"></div></div>
     <p class="foot-note" id="table-note"></p>
@@ -301,6 +306,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   const COLS = [
     { k: 'pct', t: '獲利率', f: pct, color: true, strong: true },
     { k: 'pnl', t: '獲利金額', f: signed, color: true },
+    { k: 'entryKey', t: '進場', show: 'entry', sessionOnly: true },
+    { k: 'exitKey', t: '出場', show: 'exit', sessionOnly: true },
     { k: 'asset', t: '資產', f: int },
     { k: 'ratio', t: '保證金剩餘', f: meter },
     { k: 'tv', t: '時間價值', f: int },
@@ -328,6 +335,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   const state = { data: null, sort: 'pct', asc: false, all: false, q: '', mode: null, metric: 'pct', period: null, showAllRanks: false, off: {}, hover: null, lastOk: null };
   const $ = id => document.getElementById(id);
+  const COLS_KEY = 'joption-monitor-cols';
+  state.colOrder = [];
+  try {
+    const savedCols = JSON.parse(localStorage.getItem(COLS_KEY) || '[]');
+    if (Array.isArray(savedCols)) state.colOrder = savedCols.filter(k => typeof k === 'string');
+  } catch (e) { /* 存不了就用預設欄位順序 */ }
   const CUSTOM_KEY = 'joption-monitor-custom-order';
   state.custom = [];
   try {
@@ -435,8 +448,23 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return '剩 ' + (h === 24 ? day + 1 : day) + ' 天' + (h && h !== 24 ? ' ' + h + ' 小時' : '');
   }
 
+  // 夜盤跨午夜，凌晨的時間要排在晚上之後
+  function timeKey(t) {
+    const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return (+m[1] < 8 ? 1440 : 0) + +m[1] * 60 + +m[2];
+  }
+  function posCell(c, m) {
+    if (c.show === 'entry') return m.pos.carry ? '<span class="chip hold0">前盤留倉</span>' : m.pos.in || '–';
+    return m.pos.open ? '<span class="chip warn">留倉</span>' : m.pos.out || '–';
+  }
+
   function renderTable(d) {
-    const cols = state.all ? COLS.concat(MORE_COLS) : COLS;
+    // 欄位照自己拖的順序，新欄位或沒拖過的接在原本的位置
+    const colRank = k => { const i = state.colOrder.indexOf(k); return i < 0 ? 1000 : i; };
+    const cols = (state.all ? COLS.concat(MORE_COLS) : COLS)
+      .filter(c => !c.sessionOnly || state.view === 'session')
+      .map((c, i) => [c, i]).sort((a, b) => (colRank(a[0].k) - colRank(b[0].k)) || (a[1] - b[1])).map(x => x[0]);
     const newest = Math.max.apply(null, d.members.map(m => ms(m.updated)).concat(0));
     const q = state.q.trim().toLowerCase();
     // 獲利兩欄跟著選的期間換，沒有這一期資料的人顯示 –，排在最後
@@ -450,7 +478,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     let rows = d.members.map((m, i) => {
       const r = byName[m.name];
       const order = m.name in rank ? rank[m.name] : state.custom.length + i;
-      return Object.assign({}, m, { order: order, pct: r ? r.pct : null, pnl: r ? r.pnl : null, flag: r ? r.flag : false });
+      const pos = (d.positions && d.positions.people && d.positions.people[m.name]) || {};
+      return Object.assign({}, m, {
+        order: order, pct: r ? r.pct : null, pnl: r ? r.pnl : null, flag: r ? r.flag : false,
+        pos: pos, entryKey: pos.carry ? -1 : timeKey(pos.in), exitKey: pos.open ? 9999 : timeKey(pos.out),
+      });
     });
     if (q) rows = rows.filter(m => m.name.toLowerCase().indexOf(q) >= 0);
     const col = cols.concat(MORE_COLS).find(c => c.k === state.sort);
@@ -464,9 +496,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     });
     const th = (k, t, cls, extra) => {
       const on = state.sort === k;
-      return '<th scope="col" class="' + (cls || '') + '"' + (on && k !== 'order' ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on && k !== 'order' ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button>' + (extra || '') + '</th>';
+      return '<th scope="col" data-col="' + k + '" class="' + (cls || '') + '"' + (on && k !== 'order' ? ' aria-sort="' + (state.asc ? 'ascending' : 'descending') + '"' : '') + '><button data-sort="' + k + '">' + t + (on && k !== 'order' ? '<span class="arrow">' + (state.asc ? '▲' : '▼') + '</span>' : '') + '</button>' + (extra || '') + '</th>';
     };
-    const nameExtra = '<span class="drag-hint"><span class="txt">按住 ⋮⋮ 拖曳排序</span>' + (state.custom.length ? '<button id="order-reset" type="button">還原</button>' : '') + '</span>';
+    const nameExtra = '<span class="drag-hint"><span class="txt">按住 ⋮⋮ 拖曳排序</span>' + (state.custom.length || state.colOrder.length ? '<button id="order-reset" type="button">還原</button>' : '') + '</span>';
     const prefix = state.view === 'session' ? '當盤' : '當週';
     const title = c => (c.k === 'pct' ? prefix + '獲利率' : c.k === 'pnl' ? prefix + '金額' : c.t);
     document.querySelectorAll('#pnl-view button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.view));
@@ -481,7 +513,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const grip = q ? '' : '<span class="grip" role="button" tabindex="0" title="按住上下拖曳，調整順序" aria-label="調整 ' + esc(m.name) + ' 的順序，可按上下鍵移動">⋮⋮</span>';
       html += '<tr data-name="' + esc(m.name) + '"><td class="name" title="' + esc(m.name) + '">' + grip + esc(m.name) + chip + '</td>' + cols.map(c => {
         const cl = [c.color ? tone(m[c.k]) : '', c.strong ? 'strong' : '', c.cls2 || ''].join(' ').trim();
-        return '<td' + (cl ? ' class="' + cl + '"' : '') + '>' + c.f(m[c.k]) + '</td>';
+        return '<td' + (cl ? ' class="' + cl + '"' : '') + '>' + (c.show ? posCell(c, m) : c.f(m[c.k])) + '</td>';
       }).join('') + '</tr>';
     });
     $('table').innerHTML = html + '</tbody></table>';
@@ -987,13 +1019,65 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const again = [...$('table').querySelectorAll('tbody tr')].find(r => r.dataset.name === name);
     if (again) again.querySelector('.grip').focus();
   });
+  // 欄位排序：用滑鼠按住欄位名稱左右拖；沒移動就當成點一下排序
+  let skipClick = false;
+  $('table').addEventListener('pointerdown', e => {
+    const th = e.target.closest('th[data-col]');
+    if (!th || th.dataset.col === 'order' || e.pointerType !== 'mouse' || e.button !== 0 || e.target.id === 'order-reset') return;
+    const row = th.parentNode;
+    const ths = [...row.children];
+    const from = ths.indexOf(th);
+    const box = $('table');
+    const startX = e.clientX;
+    let moved = false, to = from;
+    const clear = () => ths.forEach(t => t.classList.remove('col-left', 'col-right'));
+    const move = ev => {
+      if (!moved && Math.abs(ev.clientX - startX) < 8) return;
+      if (!moved) { moved = true; state.dragging = true; th.classList.add('col-drag'); }
+      ev.preventDefault();
+      const edge = box.getBoundingClientRect();
+      if (ev.clientX < edge.left + 40) box.scrollLeft -= 14;
+      else if (ev.clientX > edge.right - 40) box.scrollLeft += 14;
+      to = from;
+      for (let i = 1; i < ths.length; i++) {  // 第一欄暱稱固定不動
+        const r = ths[i].getBoundingClientRect();
+        if (ev.clientX >= r.left && ev.clientX <= r.right) { to = i; break; }
+      }
+      clear();
+      if (to !== from) ths[to].classList.add(to < from ? 'col-left' : 'col-right');
+    };
+    const end = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', end);
+      document.removeEventListener('pointercancel', end);
+      clear();
+      th.classList.remove('col-drag');
+      if (!moved) return;
+      state.dragging = false;
+      skipClick = true;
+      setTimeout(() => { skipClick = false; }, 0);
+      if (to !== from) {
+        const keys = ths.slice(1).map(t => t.dataset.col);
+        keys.splice(to - 1, 0, keys.splice(from - 1, 1)[0]);
+        // 只顯示部分欄位時，沒看到的欄位順序要留著
+        state.colOrder = keys.concat(state.colOrder.filter(k => keys.indexOf(k) < 0));
+        try { localStorage.setItem(COLS_KEY, JSON.stringify(state.colOrder)); } catch (x) { /* 這次有效就好 */ }
+      }
+      renderTable(state.data);
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', end);
+    document.addEventListener('pointercancel', end);
+  });
   $('table').addEventListener('click', e => {
+    if (skipClick) return;
     if (e.target.id === 'order-reset') {
       state.custom = [];
+      state.colOrder = [];
       state.sort = 'order';
       state.asc = false;
       saveSort();
-      try { localStorage.removeItem(CUSTOM_KEY); } catch (x) { /* 這次有效就好 */ }
+      try { localStorage.removeItem(CUSTOM_KEY); localStorage.removeItem(COLS_KEY); } catch (x) { /* 這次有效就好 */ }
       renderTable(state.data);
       return;
     }
