@@ -782,8 +782,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   // 倒數天數：那一盤的日期離結算日還有幾個日曆天，夜盤算開盤那天（二夜跟二早一樣剩 1 天）
   // 盤和盤之間的格線、盤名；放大到兩盤半以內，盤名移到上面，下面改標整點
-  // 盤名下面第二行：時間價值圖寫倒數第幾盤（結算盤是剩 1 盤），VIX 圖寫日期
-  function axisSvg(ref, x, m, W, H, byDate) {
+  // 盤名下面第二行寫倒數第幾盤（結算盤是剩 1 盤），VIX 圖跟時間價值圖一樣
+  function axisSvg(ref, x, m, W, H) {
     const a = state.xr[0], b = state.xr[1], zoom = b - a <= 2.5, px = (W - m.l - m.r) / (b - a);
     let svg = '';
     for (let i = Math.ceil(a); i <= Math.floor(b); i++) svg += '<line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--line)"/>';
@@ -791,9 +791,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const lo = Math.max(a, i), hi = Math.min(b, i + 1);
       if (hi - lo < .05 || (!zoom && px < 30 && i % 2)) return;
       const count = '剩 ' + (SLOTS - i) + ' 盤';
-      if (zoom) svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (m.t - 8) + '" text-anchor="middle" class="tag">' + slotDate(ref, s) + ' ' + slotName(s, i) + (byDate ? '' : '　' + count) + '</text>';
-      else svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 24) + '" text-anchor="middle">' + (!byDate && px >= 86 ? slotDate(ref, s) + ' ' : '') + slotName(s, i) + '</text>' +
-        '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 7) + '" text-anchor="middle" class="cd">' + (byDate ? slotDate(ref, s) : count) + '</text>';
+      if (zoom) svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (m.t - 8) + '" text-anchor="middle" class="tag">' + slotDate(ref, s) + ' ' + slotName(s, i) + '　' + count + '</text>';
+      else svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 24) + '" text-anchor="middle">' + (px >= 86 ? slotDate(ref, s) + ' ' : '') + slotName(s, i) + '</text>' +
+        '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 7) + '" text-anchor="middle" class="cd">' + count + '</text>';
       if (!zoom) return;
       (s.night ? [16, 18, 20, 22, 24, 26, 28] : [9, 10, 11, 12, 13]).forEach(hh => {
         const t = s.d * 1440 + hh * 60;
@@ -1059,7 +1059,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     for (let t = yLo; t <= yHi; t += step) {
       svg += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="var(--line)"/><text x="' + (m.l - 7) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + t + '</text>';
     }
-    svg += axisSvg(ref, x, m, W, H, true);
+    svg += axisSvg(ref, x, m, W, H);
     let solid = '', dash = '';
     pts.forEach((q, i) => {
       const xy = x(q.p).toFixed(1) + ' ' + y(q.v).toFixed(1);
