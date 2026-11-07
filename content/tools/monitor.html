@@ -322,7 +322,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <section aria-labelledby="h-vix">
     <div class="head">
       <h2 id="h-vix">VIX 波動率</h2>
-      <p>臺指選擇權波動率指數，來源是期交所，每 15 分鐘收一次。橫軸是日期，畫到最近一期結算日為止的 10 個交易日，還沒到的日子先留空。VIX 只有日盤，夜盤跳過；11/02 以前只有每天收盤一點。</p>
+      <p>臺指選擇權波動率指數，來源是期交所，當天每分鐘一點，昨天以前每 15 分鐘一點。橫軸是日期，畫到最近一期結算日為止的 10 個交易日，還沒到的日子先留空。VIX 只有日盤，夜盤跳過；11/02 以前只有每天收盤一點。</p>
     </div>
     <div class="card">
       <div class="vix-stats num" id="vix-stats"></div>
@@ -1038,7 +1038,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       return i + Math.max(0, Math.min(1, (min - DAY_OPEN) / (DAY_CLOSE - DAY_OPEN)));
     };
     const pts = [];
-    (v.ticks && v.ticks.length ? v.ticks : v.daily).forEach(r => {
+    // 今天用每分鐘的紀錄，昨天以前用試算表的 15 分鐘紀錄
+    const dayKey = text => { const t = String(text).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/); return t ? +t[1] * 10000 + +t[2] * 100 + +t[3] : 0; };  // 試算表的日期可能沒補零
+    const mins = state.vixToday || [], minDay = mins.length ? dayKey(mins[0][0]) : 0;
+    const base = v.ticks && v.ticks.length ? v.ticks : v.daily;
+    base.filter(r => !minDay || dayKey(r[0]) !== minDay).concat(mins).forEach(r => {
       const t = String(r[0]).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
       if (!t) return;
       const ms = new Date(+t[1], t[2] - 1, +t[3], t[4] ? +t[4] : 13, t[4] ? +t[5] : 45).getTime();
@@ -1312,6 +1316,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       state.canErase = !!res.canErase;
       state.canHistory = !!res.canHistory;
       renderPresence(res.presence);
+      state.vixToday = res.vixToday || [];
       if (!state.canErase) state.eraseOn = false;
       state.lastOk = Date.now();
       showGate(false);
