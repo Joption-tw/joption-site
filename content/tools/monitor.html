@@ -1088,7 +1088,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     svg += '</g>';
     const last = pts[pts.length - 1];
     {
-      const ex = x(last.p), ey = y(last.v), right = ex < W * .68;
+      const ex = x(last.p), ey = y(last.v), right = ex < W - m.r - 70;  // 右邊還沒到的日子是空的，標籤放右邊才不會壓到線
       svg += '<circle cx="' + ex + '" cy="' + ey + '" r="5.5" fill="var(--indigo)" stroke="var(--white)" stroke-width="2"/>';
       svg += '<text class="tag" x="' + (ex + (right ? 10 : -10)) + '" y="' + Math.max(m.t + 12, ey - 12) + '" text-anchor="' + (right ? 'start' : 'end') + '" style="fill:var(--indigo)">' + last.v.toFixed(2) + '</text>';
     }
