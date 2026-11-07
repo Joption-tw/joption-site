@@ -177,6 +177,7 @@ td.when { color: var(--muted); font-size: 13px; }
 .chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
 .chart text { font: 12px var(--text); fill: var(--muted); font-variant-numeric: tabular-nums; }
 .chart text.tag { font-weight: 900; font-size: 13px; }
+.chart text.cd { fill: var(--ink); font-weight: 700; }
 .tip { position: absolute; top: 8px; z-index: 4; min-width: 150px; padding: 7px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink); font-size: 13px; pointer-events: none; }
 .tip b { display: block; margin-bottom: 2px; }
 .tip div { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
@@ -779,6 +780,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   const xOf = (m, W) => p => m.l + (p - state.xr[0]) / (state.xr[1] - state.xr[0]) * (W - m.l - m.r);
   const posAtPx = (m, W, px) => state.xr[0] + (Math.max(m.l, Math.min(W - m.r, px)) - m.l) / (W - m.l - m.r) * (state.xr[1] - state.xr[0]);
 
+  // 倒數天數：那一盤的日期離結算日還有幾個日曆天，夜盤算開盤那天（二夜跟二早一樣剩 1 天）
+  const countText = s => (s.d === 0 ? '結算當天' : '剩 ' + (-s.d) + ' 天');
   // 盤和盤之間的格線、盤名；放大到兩盤半以內，盤名移到上面，下面改標整點
   function axisSvg(ref, x, m, W, H) {
     const a = state.xr[0], b = state.xr[1], zoom = b - a <= 2.5, px = (W - m.l - m.r) / (b - a);
@@ -788,7 +791,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const lo = Math.max(a, i), hi = Math.min(b, i + 1);
       if (hi - lo < .05 || (!zoom && px < 30 && i % 2)) return;
       const label = (zoom || px >= 86 ? slotDate(ref, s) + ' ' : '') + slotName(s, i);
-      svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (zoom ? m.t - 8 : H - 8) + '" text-anchor="middle"' + (zoom ? ' class="tag"' : '') + '>' + label + '</text>';
+      if (zoom) svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (m.t - 8) + '" text-anchor="middle" class="tag">' + label + '　' + countText(s) + '</text>';
+      else svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 24) + '" text-anchor="middle">' + label + '</text>' +
+        '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 7) + '" text-anchor="middle" class="cd">' + countText(s) + '</text>';
       if (!zoom) return;
       (s.night ? [16, 18, 20, 22, 24, 26, 28] : [9, 10, 11, 12, 13]).forEach(hh => {
         const t = s.d * 1440 + hh * 60;
@@ -853,7 +858,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (!h || !h.contracts.length) { box.innerHTML = '<div class="empty">還沒有時間價值資料。</div>'; return; }
     const ref = refOf(h);
     const W = Math.max(320, box.clientWidth - 16), H = W < 560 ? 300 : 380;
-    const m = { l: 50, r: 16, t: 26, b: 26 };
+    const m = { l: 50, r: 16, t: 26, b: 42 };
     const a = state.xr[0], b = state.xr[1], x = xOf(m, W);
     const list = onAxis(h).filter(s => !state.off[s.name]);
     // 即時值偶爾有跳點，上限看畫面裡的過去幾期和生命線，跳點超出就切掉
@@ -1042,7 +1047,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const shown = pts.filter(q => q.p >= a && q.p <= b);
     if (!pts.length) { box.innerHTML = '<div class="empty">這 10 盤還沒有 VIX 資料，日盤開盤後每 15 分鐘會多一點。</div>'; return; }
     const W = Math.max(320, box.clientWidth - 16), H = W < 560 ? 220 : 260;
-    const m = { l: 50, r: 16, t: 26, b: 26 };
+    const m = { l: 50, r: 16, t: 26, b: 42 };
     const x = xOf(m, W);
     const use = (shown.length ? shown : pts).map(q => q.v);
     let yLo = Math.floor(Math.min.apply(null, use) - .5), yHi = Math.ceil(Math.max.apply(null, use) + .5);
