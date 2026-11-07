@@ -498,7 +498,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' +
           (diff === null ? '' : '<span class="mk-chg ' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '<em>(' + change(diff / fut.ref * 100, 2) + '%)</em></span>') +
           (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
-        '<div class="mk-sub">' + (fut && fut.ref ? '參考價 ' + int(fut.ref) + '，' : '') + (q ? '期交所 ' + esc(q.at) : '讀取中') + '</div></div>' +
+        '<div class="mk-sub">' + (fut && fut.ref ? (/-M$/.test(fut.symbol || '') ? '日盤結算 ' : '前日結算 ') + int(fut.ref) + '，' : '')  /* 期交所的參考價是結算價不是收盤價；夜盤用當天日盤的結算價 */ + (q ? '期交所 ' + esc(q.at) : '讀取中') + '</div></div>' +
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
         '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
         '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span>，昨收 ' + vix.ref.toFixed(2)) + '</div></div>';
@@ -1221,7 +1221,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const per = state.mode === 'week' ? '週' : '盤', recorded = periodsOf(d);
     const note = recorded.length >= 10 ? '' : (!state.canHistory ? '這週目前 ' : '從 ' + esc(recorded[0].label.replace('（即時）', '')) + ' 開始記錄，目前 ') + recorded.length + ' ' + per + '，之後每收一' + per + '就往前推';
     let html = '<h3>最近 10 ' + per + '排排看' + (note ? '<small class="h-note">' + note + '</small>' : '') + '</h3><div class="card"><div class="scroll"><table class="matrix"><thead><tr><th scope="col">社群暱稱</th>' +
-      periods.map(p => '<th scope="col">' + esc(p.label.replace(' 週', '').replace('早盤', '早').replace('夜盤', '夜')) + '</th>').join('') + '<th scope="col">合計</th><th scope="col">賺的次數</th></tr></thead><tbody>';
+      periods.map(p => '<th scope="col">' + esc(state.mode === 'week' ? weekRange(p.label) : p.label.replace('早盤', '早').replace('夜盤', '夜')) + '</th>').join('') + '<th scope="col">合計</th><th scope="col">賺的次數</th></tr></thead><tbody>';
     list.forEach(q => {
       html += '<tr><td class="name" title="' + esc(q.name) + '">' + esc(q.name) + '</td>' + periods.map((p, j) => {
         const r = q.cells[j];
@@ -1229,6 +1229,15 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       }).join('') + '<td class="strong ' + tone(q.total) + '">' + fmt(q.total) + '</td><td>' + q.wins + ' / ' + q.played + '</td></tr>';
     });
     wrap.innerHTML = html + '</tbody></table></div></div>';
+  }
+
+  // 一週從週三夜盤到下週三結算，標籤是起頭那個週三，表頭寫成「10/28～11/04」
+  function weekRange(label) {
+    const t = String(label).match(/(\d{1,2})\/(\d{1,2})/);
+    if (!t) return String(label).replace(' 週', '');
+    const now = new Date(), y = +t[1] > now.getMonth() + 2 ? now.getFullYear() - 1 : now.getFullYear();  // 1 月看到 12 月的週算去年
+    const end = new Date(y, t[1] - 1, +t[2] + 7);
+    return pad2(+t[1]) + '/' + pad2(+t[2]) + '～' + pad2(end.getMonth() + 1) + '/' + pad2(end.getDate());
   }
 
   // 在線人數：只有有橡皮擦權限的人拿得到，滑鼠移上去看是誰
