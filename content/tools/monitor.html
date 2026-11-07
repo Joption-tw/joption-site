@@ -307,7 +307,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     <div class="head">
       <h2 id="h-tv">時間價值走勢</h2>
       <div class="tools"><button class="btn" id="erase-toggle" aria-pressed="false" hidden>橡皮擦</button></div>
-      <p>橫軸是結算前最後 10 盤：週三結算從上週三夜盤到週三早盤，週五結算從上週五夜盤到週五早盤，每盤一樣寬，週末不留空，週三週五的合約按盤對齊。上面的按鈕可以只看某一盤，下面的拉桿可以左右拖、拉兩邊縮放，VIX 圖跟著一起動。靛藍粗線是這期週三，黃粗線是這期週五，黑線是已結算合約的優化平均，細線是過去幾期，收在「過去 N 期」裡，展開可以一條一條開關，標籤後面是那一期走到同一盤時的 VIX。按「VIX 相近」只留 VIX 跟現在差 3 點以內的過去合約，優化平均也只用它們算。滑鼠移到圖上，每條線後面也會標當時的 VIX。</p>
+      <p>橫軸是結算前最後 10 盤：上面的按鈕可以只看某一盤，下面的拉桿可以左右拖、拉兩邊縮放。</p>
     </div>
     <div class="erase-bar" id="erase-bar" hidden></div>
     <div class="card">
@@ -780,7 +780,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
   // 倒數天數：那一盤的日期離結算日還有幾個日曆天，夜盤算開盤那天（二夜跟二早一樣剩 1 天）
   // 盤和盤之間的格線、盤名；放大到兩盤半以內，盤名移到上面，下面改標整點
-  // 盤名下面第二行寫倒數第幾盤（結算盤是剩 1 盤），VIX 圖跟時間價值圖一樣
+  // 橫軸只寫倒數第幾盤（結算盤是剩 1 盤），盤名在上面的按鈕
   function axisSvg(ref, x, m, W, H) {
     const a = state.xr[0], b = state.xr[1], zoom = b - a <= 2.5, px = (W - m.l - m.r) / (b - a);
     let svg = '';
@@ -789,9 +789,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const lo = Math.max(a, i), hi = Math.min(b, i + 1);
       if (hi - lo < .05 || (!zoom && px < 30 && i % 2)) return;
       const count = '剩 ' + (SLOTS - i) + ' 盤';
-      if (zoom) svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (m.t - 8) + '" text-anchor="middle" class="tag">' + slotDate(ref, s) + ' ' + slotName(s, i) + '　' + count + '</text>';
-      else svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 24) + '" text-anchor="middle">' + (px >= 86 ? slotDate(ref, s) + ' ' : '') + slotName(s, i) + '</text>' +
-        '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 7) + '" text-anchor="middle" class="cd">' + count + '</text>';
+      if (zoom) svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (m.t - 8) + '" text-anchor="middle" class="tag">' + count + '</text>';
+      else svg += '<text x="' + x((lo + hi) / 2) + '" y="' + (H - 8) + '" text-anchor="middle" class="cd">' + count + '</text>';
       if (!zoom) return;
       (s.night ? [16, 18, 20, 22, 24, 26, 28] : [9, 10, 11, 12, 13]).forEach(hh => {
         const t = s.d * 1440 + hh * 60;
@@ -804,13 +803,16 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return svg;
   }
 
+  // 優化平均只用近 4 週（28 天內）結算的合約
+  const AVG_DAYS = 28;
+  function recent(s) { const d = settleDateOf(s); return !!d && Date.now() - d.getTime() <= AVG_DAYS * 86400000; }
   // 每條線換成橫軸位置；優化平均在網頁按盤位重算，週三週五的日曆天才不會對不齊
   function onAxis(h) {
     const list = seriesList(h).map(s => (s.isAvg ? Object.assign({}, s) : Object.assign({}, s, { pos: s.days.map(d => posOf(slotsOf(s.settle), SETTLE_MIN - d * 1440)) })));
     const avg = list.find(s => s.isAvg);
     const vixOf = state.vixNear ? pastVix(h) : null, cur = currentVix();
     const far = s => vixOf && isFar(s.name, vixOf, cur);
-    if (avg) Object.assign(avg, avgOnAxis(list.filter(s => !s.main && !s.isAvg && !/W/i.test(s.name) && !far(s))));
+    if (avg) Object.assign(avg, avgOnAxis(list.filter(s => !s.main && !s.isAvg && !/W/i.test(s.name) && !far(s) && recent(s))));
     const nc = nearColors(h);
     list.forEach(s => { if (nc[s.name]) { s.color = nc[s.name]; s.w = 1.5; s.op = .7; } });  // 看得出是哪期就好，不搶這期的線
     return list.filter(s => s.main || s.isAvg || !far(s));
@@ -856,7 +858,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (!h || !h.contracts.length) { box.innerHTML = '<div class="empty">還沒有時間價值資料。</div>'; return; }
     const ref = refOf(h);
     const W = Math.max(320, box.clientWidth - 16), H = W < 560 ? 300 : 380;
-    const m = { l: 50, r: 16, t: 26, b: 42 };
+    const m = { l: 50, r: 16, t: 26, b: 26 };
     const a = state.xr[0], b = state.xr[1], x = xOf(m, W);
     const list = onAxis(h).filter(s => !state.off[s.name]);
     // 即時值偶爾有跳點，上限看畫面裡的過去幾期和生命線，跳點超出就切掉
