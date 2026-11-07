@@ -322,7 +322,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <section aria-labelledby="h-vix">
     <div class="head">
       <h2 id="h-vix">VIX 波動率</h2>
-      <p>臺指選擇權波動率指數，來源是期交所，當天每分鐘一點，昨天以前每 15 分鐘一點。橫軸是日期，畫到最近一期結算日為止的 10 個交易日，還沒到的日子先留空。VIX 只有日盤，夜盤跳過；11/02 以前只有每天收盤一點。</p>
+      <p>臺指選擇權波動率指數，來源是期交所。VIX 只有日盤，夜盤跳過。</p>
     </div>
     <div class="card">
       <div class="vix-stats num" id="vix-stats"></div>
@@ -1026,7 +1026,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const box = $('vix-chart'), stats = $('vix-stats');
     if (!v || !v.daily.length) { stats.innerHTML = ''; box.innerHTML = '<div class="empty">還沒有 VIX 資料。程式裝好後會先補近 3 個月的收盤。</div>'; return; }
     const vals = v.daily.map(p => p[1]);
-    const hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
+    // 最高最低要算盤中，不能只看收盤（11/6 盤中衝到 58 多，收盤才 46.52）
+    const all = vals.concat((v.ticks || []).map(r => +r[1]), (state.vixToday || []).map(r => +r[1])).filter(x => x > 0);
+    const hi = Math.max.apply(null, all), lo = Math.min.apply(null, all);
     const now = (state.quote && state.quote.vix && state.quote.vix.last) || (v.live ? v.live.v : vals[vals.length - 1]);
     const below = vals.filter(x => x < now).length;
     stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span><span>近 3 個月最高<b>' + hi.toFixed(2) + '</b></span><span>最低<b>' + lo.toFixed(2) + '</b></span><span>比近 3 個月 ' + Math.round(below / vals.length * 100) + '% 的日子高</span>';
