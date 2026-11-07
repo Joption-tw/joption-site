@@ -316,7 +316,6 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       <div class="chart" id="chart"></div>
       <div class="brush" id="brush-tv" title="左右拖動橫軸，拉兩邊縮放"></div>
     </div>
-    <p class="foot-note" id="tv-note"></p>
   </section>
 
   <section aria-labelledby="h-vix">
@@ -968,7 +967,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     let html = '';
     if (ref.live.length > 1) html += '<div class="seg" role="group" aria-label="對齊哪一期">' + ref.live.map(c => '<button type="button" data-ref="' + esc(c.name) + '" aria-pressed="' + (c.name === ref.name) + '">' + esc(c.name) + '</button>').join('') + '</div>';
     html += '<div class="seg slots" role="group" aria-label="看哪一盤"><button type="button" data-slot="all" aria-pressed="' + (a === 0 && b === SLOTS) + '">全部</button>' +
-      ref.slots.map((s, i) => '<button type="button" data-slot="' + i + '" aria-pressed="' + (a === i && b === i + 1) + '" title="' + slotDate(ref, s) + ' ' + (s.night ? '夜盤' : '早盤') + '"' + (nowPos !== null && slotOf(nowPos) === i ? ' class="now"' : '') + '>' + slotName(s, i) + '</button>').join('') + '</div>';
+      ref.slots.map((s, i) => '<button type="button" data-slot="' + i + '" aria-pressed="' + (a === i && b === i + 1) + '" title="' + slotDate(ref, s) + ' ' + slotName(s, i) + '"' + (nowPos !== null && slotOf(nowPos) === i ? ' class="now"' : '') + '>剩 ' + (SLOTS - i) + ' 盤</button>').join('') + '</div>';
     $('axis-tv').innerHTML = html;
   }
   function renderBrushes() {
@@ -1258,7 +1257,6 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     $('erase-toggle').hidden = !state.canErase;
     if (d.history) {
       renderLegend(d.history); renderAxisBar(); renderBrushes(); renderChart(d.history); renderEraseBar();
-      $('tv-note').textContent = '週三、週五都以 KGI 的值為主，抓不到或跳太遠才用超級電腦補，兩邊都不可信就留空，再做 10 分鐘平滑。週五的過去合約從程式裝好那週開始累積。';
     }
     renderVix(d.vix);
     renderCompare(d);
