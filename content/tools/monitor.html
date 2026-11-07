@@ -322,13 +322,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <section aria-labelledby="h-vix">
     <div class="head">
       <h2 id="h-vix">VIX 波動率</h2>
-      <p>臺指選擇權波動率指數，來源是期交所，每 15 分鐘收一次。橫軸跟時間價值圖一樣，盤別按鈕和拉桿兩邊連動。VIX 只有日盤，夜盤用虛線連起來；11/02 以前只有每天收盤一點。</p>
+      <p>臺指選擇權波動率指數，來源是期交所，每 15 分鐘收一次。橫軸是日期，畫到最近一期結算日為止的 10 個交易日，還沒到的日子先留空。VIX 只有日盤，夜盤跳過；11/02 以前只有每天收盤一點。</p>
     </div>
     <div class="card">
       <div class="vix-stats num" id="vix-stats"></div>
-      <div class="axis-bar" id="axis-vix"></div>
       <div class="chart" id="vix-chart"></div>
-      <div class="brush" id="brush-vix" title="左右拖動橫軸，拉兩邊縮放"></div>
     </div>
   </section>
 
@@ -969,14 +967,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (ref.live.length > 1) html += '<div class="seg" role="group" aria-label="對齊哪一期">' + ref.live.map(c => '<button type="button" data-ref="' + esc(c.name) + '" aria-pressed="' + (c.name === ref.name) + '">' + esc(c.name) + '</button>').join('') + '</div>';
     html += '<div class="seg slots" role="group" aria-label="看哪一盤"><button type="button" data-slot="all" aria-pressed="' + (a === 0 && b === SLOTS) + '">全部</button>' +
       ref.slots.map((s, i) => '<button type="button" data-slot="' + i + '" aria-pressed="' + (a === i && b === i + 1) + '" title="' + slotDate(ref, s) + ' ' + (s.night ? '夜盤' : '早盤') + '"' + (nowPos !== null && slotOf(nowPos) === i ? ' class="now"' : '') + '>' + slotName(s, i) + '</button>').join('') + '</div>';
-    ['axis-tv', 'axis-vix'].forEach(id => { $(id).innerHTML = html; });
+    $('axis-tv').innerHTML = html;
   }
   function renderBrushes() {
     const ref = refOf(state.data && state.data.history), a = state.xr[0], b = state.xr[1];
     const cells = ref.slots.map(() => '<span></span>').join('');  // 盤名上面的橫軸已經有了，拉桿只留格線
-    ['brush-tv', 'brush-vix'].forEach(id => {
-      $(id).innerHTML = '<div class="brush-cells">' + cells + '</div><div class="brush-win" style="left:' + (a / SLOTS * 100) + '%;width:' + ((b - a) / SLOTS * 100) + '%"><i class="bh l"></i><i class="bh r"></i></div>';
-    });
+    $('brush-tv').innerHTML = '<div class="brush-cells">' + cells + '</div><div class="brush-win" style="left:' + (a / SLOTS * 100) + '%;width:' + ((b - a) / SLOTS * 100) + '%"><i class="bh l"></i><i class="bh r"></i></div>';
   }
   let axisFrame = 0;
   function setXr(a, b) {
@@ -1013,7 +1009,19 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return true;
   }
 
-  // VIX 跟時間價值圖同一條橫軸；VIX 只有日盤，夜盤用虛線把前後兩個日盤連起來
+  // VIX 自己一條日期橫軸：最近一期結算日往回 10 個交易日（週一到週五），每天只畫日盤 08:45～13:45，夜盤跳過
+  const VIX_DAYS = 10, DAY_OPEN = 525, DAY_CLOSE = 825;
+  function vixDays() {
+    const h = state.data && state.data.history;
+    const at = c => dateOf(c.date).getTime() + SETTLE_MIN * 60000;
+    const live = ((h && h.contracts) || []).filter(c => c.live && c.date);
+    const next = live.filter(c => at(c) > Date.now()).sort((a, b) => at(a) - at(b))[0];
+    let d = next ? dateOf(next.date) : new Date();
+    if (!next) { d = new Date(d.getFullYear(), d.getMonth(), d.getDate()); while (d.getDay() !== 3) d.setDate(d.getDate() + 1); }  // 還沒有這期資料就畫到下一個週三
+    const out = [];
+    for (; out.length < VIX_DAYS; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)) if (d.getDay() > 0 && d.getDay() < 6) out.push(d);
+    return out.reverse();
+  }
   function renderVix(v) {
     const box = $('vix-chart'), stats = $('vix-stats');
     if (!v || !v.daily.length) { stats.innerHTML = ''; box.innerHTML = '<div class="empty">還沒有 VIX 資料。程式裝好後會先補近 3 個月的收盤。</div>'; return; }
@@ -1022,49 +1030,53 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const now = (state.quote && state.quote.vix && state.quote.vix.last) || (v.live ? v.live.v : vals[vals.length - 1]);
     const below = vals.filter(x => x < now).length;
     stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span><span>近 3 個月最高<b>' + hi.toFixed(2) + '</b></span><span>最低<b>' + lo.toFixed(2) + '</b></span><span>比近 3 個月 ' + Math.round(below / vals.length * 100) + '% 的日子高</span>';
-    const ref = refOf(state.data && state.data.history);
-    const at = minute => {
-      const p = posOf(ref.slots, minute);
-      if (p !== null) return p;
-      // 結算日 13:30 以後的收盤點貼在結算盤的最右邊
-      const i = ref.slots.findIndex(s => !s.night && s.d === Math.floor(minute / 1440) && minute > s.to && minute <= s.d * 1440 + 830);
-      return i < 0 ? null : i + 1;
+    const days = vixDays(), keys = days.map(d => d.toDateString());
+    const at = ms => {
+      const d = new Date(ms), i = keys.indexOf(d.toDateString());
+      if (i < 0) return null;
+      const min = d.getHours() * 60 + d.getMinutes();
+      return i + Math.max(0, Math.min(1, (min - DAY_OPEN) / (DAY_CLOSE - DAY_OPEN)));
     };
     const pts = [];
     (v.ticks && v.ticks.length ? v.ticks : v.daily).forEach(r => {
       const t = String(r[0]).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
       if (!t) return;
       const ms = new Date(+t[1], t[2] - 1, +t[3], t[4] ? +t[4] : 13, t[4] ? +t[5] : 45).getTime();
-      const p = at(minOf(ref, ms));
+      const p = at(ms);
       if (p !== null) pts.push({ p: p, v: +r[1], ms: ms });
     });
     if (state.quote && state.quote.vix && state.quote.vix.last) {
-      const p = at(minOf(ref, Date.now()));
+      const p = at(Date.now());
       if (p !== null && (!pts.length || p > pts[pts.length - 1].p)) pts.push({ p: p, v: state.quote.vix.last, ms: Date.now() });
     }
     pts.sort((p, q) => p.p - q.p);
-    const a = state.xr[0], b = state.xr[1];
-    const shown = pts.filter(q => q.p >= a && q.p <= b);
-    if (!pts.length) { box.innerHTML = '<div class="empty">這 10 盤還沒有 VIX 資料，日盤開盤後每 15 分鐘會多一點。</div>'; return; }
+    if (!pts.length) { box.innerHTML = '<div class="empty">這 10 天還沒有 VIX 資料，日盤開盤後每 15 分鐘會多一點。</div>'; return; }
     const W = Math.max(320, box.clientWidth - 16), H = W < 560 ? 220 : 260;
-    const m = { l: 50, r: 16, t: 26, b: 42 };
-    const x = xOf(m, W);
-    const use = (shown.length ? shown : pts).map(q => q.v);
+    const m = { l: 50, r: 16, t: 26, b: 26 };
+    const x = q => m.l + q / VIX_DAYS * (W - m.l - m.r);
+    const use = pts.map(q => q.v);
     let yLo = Math.floor(Math.min.apply(null, use) - .5), yHi = Math.ceil(Math.max.apply(null, use) + .5);
     const step = yHi - yLo <= 4 ? 1 : yHi - yLo <= 10 ? 2 : 5;
     yLo = Math.floor(yLo / step) * step; yHi = Math.ceil(yHi / step) * step;
     const y = val => m.t + (1 - (val - yLo) / (yHi - yLo || 1)) * (H - m.t - m.b);
-    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="VIX 走勢，橫軸跟時間價值圖一樣" id="vix-svg">';
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="VIX 走勢，橫軸是最近 10 個交易日" id="vix-svg">';
     svg += '<defs><clipPath id="vix-clip"><rect x="' + m.l + '" y="0" width="' + (W - m.l - m.r) + '" height="' + H + '"/></clipPath></defs>';
     for (let t = yLo; t <= yHi; t += step) {
       svg += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="var(--line)"/><text x="' + (m.l - 7) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + t + '</text>';
     }
-    svg += axisSvg(ref, x, m, W, H);
+    const today = new Date().toDateString(), dayPx = (W - m.l - m.r) / VIX_DAYS;
+    days.forEach((d, i) => {
+      svg += '<line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--line)"/>';
+      if (dayPx < 34 && i % 2 && i !== VIX_DAYS - 1) return;
+      const label = (d.getMonth() + 1) + '/' + d.getDate() + (dayPx >= 50 ? ' ' + WEEKDAY[d.getDay()] : '');
+      svg += '<text x="' + x(i + .5) + '" y="' + (H - 8) + '" text-anchor="middle"' + (keys[i] === today ? ' class="cd"' : '') + '>' + label + '</text>';
+    });
+    svg += '<line x1="' + x(VIX_DAYS) + '" x2="' + x(VIX_DAYS) + '" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--line)"/>';
     let solid = '', dash = '';
     pts.forEach((q, i) => {
       const xy = x(q.p).toFixed(1) + ' ' + y(q.v).toFixed(1);
       const prev = pts[i - 1];
-      if (prev && slotOf(prev.p) === slotOf(q.p)) solid += 'L' + xy;
+      if (prev && new Date(prev.ms).toDateString() === new Date(q.ms).toDateString()) solid += 'L' + xy;
       else {
         solid += 'M' + xy;
         if (prev) dash += 'M' + x(prev.p).toFixed(1) + ' ' + y(prev.v).toFixed(1) + 'L' + xy;
@@ -1075,7 +1087,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (pts.length < 40) pts.forEach(q => { svg += '<circle cx="' + x(q.p) + '" cy="' + y(q.v) + '" r="2.5" fill="var(--indigo)"/>'; });  // 只有收盤點時看得出每天一點
     svg += '</g>';
     const last = pts[pts.length - 1];
-    if (last.p >= a && last.p <= b) {
+    {
       const ex = x(last.p), ey = y(last.v), right = ex < W * .68;
       svg += '<circle cx="' + ex + '" cy="' + ey + '" r="5.5" fill="var(--indigo)" stroke="var(--white)" stroke-width="2"/>';
       svg += '<text class="tag" x="' + (ex + (right ? 10 : -10)) + '" y="' + Math.max(m.t + 12, ey - 12) + '" text-anchor="' + (right ? 'start' : 'end') + '" style="fill:var(--indigo)">' + last.v.toFixed(2) + '</text>';
@@ -1083,16 +1095,18 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     svg += '<line id="vix-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/></svg>';
     box.innerHTML = svg + '<div class="tip" id="vix-tip" hidden></div>';
     const el = $('vix-svg'), tip = $('vix-tip'), cross = $('vix-cross');
-    const tol = Math.max(.05, (b - a) * .03);
+    const tol = .3;
     el.addEventListener('pointermove', e => {
       const r = el.getBoundingClientRect();
-      const p = posAtPx(m, W, (e.clientX - r.left) / r.width * W);
+      const p = Math.max(0, Math.min(VIX_DAYS, ((e.clientX - r.left) / r.width * W - m.l) / (W - m.l - m.r) * VIX_DAYS));
       let best = null;
-      shown.forEach(q => { if (Math.abs(q.p - p) <= tol && (!best || Math.abs(q.p - p) < Math.abs(best.p - p))) best = q; });
+      pts.forEach(q => { if (Math.abs(q.p - p) <= tol && (!best || Math.abs(q.p - p) < Math.abs(best.p - p))) best = q; });
       const px = best ? x(best.p) : x(p);
       cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('visibility', 'visible');
-      tip.innerHTML = best ? '<b>' + whenText(ref, best.p) + '</b><div><span>VIX</span><span>' + best.v.toFixed(2) + '</span></div>'
-        : '<b>' + whenText(ref, p) + '</b><div>' + (ref.slots[slotOf(p)].night ? '夜盤沒有 VIX' : '這段沒有資料') + '</div>';
+      const dd = days[Math.min(VIX_DAYS - 1, Math.floor(p))], dayText = (dd.getMonth() + 1) + '/' + dd.getDate() + '（' + WEEKDAY[dd.getDay()] + '）';
+      const bt = best && new Date(best.ms);
+      tip.innerHTML = best ? '<b>' + (bt.getMonth() + 1) + '/' + bt.getDate() + '（' + WEEKDAY[bt.getDay()] + '）' + pad2(bt.getHours()) + ':' + pad2(bt.getMinutes()) + '</b><div><span>VIX</span><span>' + best.v.toFixed(2) + '</span></div>'
+        : '<b>' + dayText + '</b><div>這段沒有資料</div>';
       tip.hidden = false;
       const left = px / W * r.width;
       tip.style.left = (left > r.width * .55 ? left - tip.offsetWidth - 2 : left + 22) + 'px';
@@ -1515,7 +1529,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     new IntersectionObserver(es => { document.body.classList.toggle('mk-away', !es[0].isIntersecting); }, { rootMargin: '-70px 0px 0px 0px' })
       .observe(document.querySelector('.market-band'));
   }
-  ['axis-tv', 'axis-vix'].forEach(id => $(id).addEventListener('click', e => {
+  ['axis-tv'].forEach(id => $(id).addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.ref) state.settle = b.dataset.ref;
@@ -1524,7 +1538,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     renderAxis();
   }));
   // 拉桿：拖中間整段移動，拖兩邊縮放，點空白處把視窗移過去
-  ['brush-tv', 'brush-vix'].forEach(id => $(id).addEventListener('pointerdown', e => {
+  ['brush-tv'].forEach(id => $(id).addEventListener('pointerdown', e => {
     if (!state.data || !state.data.history) return;
     const box = e.currentTarget, r = box.getBoundingClientRect();
     const at = ev => (ev.clientX - r.left) / r.width * SLOTS;
