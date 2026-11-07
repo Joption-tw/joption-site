@@ -455,7 +455,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   }
 
   // 這期時間價值這一盤變多少：跟上一盤最後一筆比，前面沒資料就跟這一盤第一筆比
-  function tvChangeChip(c) {
+  // long 是行情格用的長版，寫出「比五早收盤」；頂列空間小用短版
+  function tvChangeChip(c, long) {
     if (!c || !c.last) return '';
     const slots = slotsOf(c.settle), at = posOf(slots, SETTLE_MIN - c.last.days * 1440);
     if (at === null) return '';
@@ -471,7 +472,17 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (!from) return '';
     const diff = c.last.value - from, pct = diff / from * 100;
     const tone = diff > 0 ? 'chg-up' : diff === 0 ? 'chg-flat' : pct > -5 ? 'chg-d1' : pct > -15 ? 'chg-d2' : 'chg-d3';
-    return '<span class="tv-chg ' + tone + '" title="跟上一盤最後一筆比">' + slotName(slots[i], i) + ' ' + (diff > 0 ? '+' : diff < 0 ? '−' : '') + int(Math.abs(diff)) + '（' + (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toFixed(1) + '%）</span>';
+    const vs = base !== null ? (i ? slotName(slots[i - 1], i - 1) : '上一盤') + '收盤' : '這盤開盤';
+    const amount = (diff > 0 ? '+' : diff < 0 ? '−' : '') + int(Math.abs(diff)) + '（' + (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toFixed(1) + '%）';
+    return '<span class="tv-chg ' + tone + '" title="' + slotName(slots[i], i) + '最後一筆跟' + vs + '比">' + (long ? slotName(slots[i], i) + '比' + vs + ' ' : slotName(slots[i], i) + ' ') + amount + '</span>';
+  }
+  // 時間價值最後一筆是幾點的：結算日 13:30 往前推剩下的天數
+  function tvStamp(c) {
+    if (!c || !c.last || !c.date) return null;
+    return new Date(dateOf(c.date).getTime() + SETTLE_MIN * 60000 - c.last.days * 86400000);
+  }
+  function stampText(t) {
+    return (t.getMonth() + 1) + '/' + t.getDate() + '（' + WEEKDAY[t.getDay()] + '）' + pad2(t.getHours()) + ':' + pad2(t.getMinutes());
   }
 
   function renderMarket(d) {
@@ -479,7 +490,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const running = d.history ? d.history.contracts.filter(c => c.live && c.last) : [];
     const open = running.filter(c => !c.date || dateOf(c.date).getTime() + SETTLE_MIN * 60000 > Date.now());
     const lives = (open.length ? open : running).sort((a, b) => a.last.days - b.last.days);
-    const first = lives[0] || null, last = first ? first.last : null;
+    const first = lives[0] || null, last = first ? first.last : null, tvAt = tvStamp(first);
     const q = state.quote, fut = q && q.fut && q.fut.last ? q.fut : null, vix = q && q.vix && q.vix.last ? q.vix : null;
     const tvPts = first ? first.data.filter(v => v !== null).slice(-36) : [];
     const month = fut ? 'ABCDEFGHIJKL'.indexOf(fut.symbol.charAt(3)) + 1 : 0;
@@ -490,18 +501,22 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const vixPts = vix && vix.ticks && vix.ticks.length >= 20 ? vix.ticks : vixToday.concat(vix ? [vix.last] : []);
     const lastDigits = v => (v % 1 ? 1 : 0);
     $('market').innerHTML =
-      '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + ' ' + daysText(last.days) + '</small>' : '') + '</h3>' +
+      '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + (first.date ? '，' + daysText((dateOf(first.date).getTime() + SETTLE_MIN * 60000 - Date.now()) / 86400000) : '') + '</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (last ? int(last.value) : '–') + '</span>' + spark(tvPts, null, 'var(--coin-deep)') + '</div>' +
-        '<div class="mk-sub">' + tvChangeChip(first) + (last && last.avg ? '比平均' + (last.diff >= 0 ? '高 ' : '低 ') + Math.abs(last.diff).toFixed(1) + '%' : '') + lives.slice(1).map(c => '，' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
+        '<div class="mk-sub">' + tvChangeChip(first, true) + '</div>' +
+        '<div class="mk-sub">' + (tvAt ? (Date.now() - tvAt.getTime() > 20 * 60000 ? '最後一筆 ' : '更新 ') + stampText(tvAt) : '') + lives.slice(1).map(c => '　' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
       // 台指期和漲跌合成一格
       '<div class="mk ' + dir + '"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' +
           (diff === null ? '' : '<span class="mk-chg ' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '<em>(' + change(diff / fut.ref * 100, 2) + '%)</em></span>') +
           (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
-        '<div class="mk-sub">' + (fut && fut.ref ? (/-M$/.test(fut.symbol || '') ? '日盤結算 ' : '前日結算 ') + int(fut.ref) + '，' : '')  /* 期交所的參考價是結算價不是收盤價；夜盤用當天日盤的結算價 */ + (q ? '期交所 ' + esc(q.at) : '讀取中') + '</div></div>' +
+        // 期交所的漲跌是跟結算價比，不是收盤價：日盤比前一交易日的結算價，夜盤比當天日盤的結算價
+        '<div class="mk-sub">' + (fut && fut.ref ? '漲跌是比' + (/-M$/.test(fut.symbol || '') ? '日盤' : '前一交易日') + '結算價 ' + int(fut.ref) : '') + '</div>' +
+        '<div class="mk-sub">' + (q ? (/-M$/.test(fut ? fut.symbol : '') ? '夜盤' : '日盤') + '，期交所報價 ' + esc(q.at) + ' 取得' : '讀取中') + '</div></div>' +
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
         '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
-        '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span>，昨收 ' + vix.ref.toFixed(2)) + '</div></div>';
+        '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span> 比前一交易日收盤 ' + vix.ref.toFixed(2)) + '</div>' +
+        '<div class="mk-sub">VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值</div></div>';
     $('ticker').innerHTML =
       '<a href="#h-tv"><small>時間價值</small><b>' + (last ? int(last.value) : '–') + '</b>' + tvChangeChip(first) + '</a>' +
       '<span><small>台指期</small><b>' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</b>' + (diff === null ? '' : '<em class="' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '（' + change(diff / fut.ref * 100, 2) + '%）</em>') + '</span>' +
