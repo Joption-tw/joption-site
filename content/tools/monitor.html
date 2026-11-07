@@ -1211,8 +1211,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     el.hidden = !p;
     if (!p) return;
     el.innerHTML = '在線 <b>' + p.online + '</b> 人<span class="pres-more">，今天 ' + p.today + '，開通 ' + p.approved + '</span>';
-    el.title = '現在在看（3 分鐘內）：' + (p.names.length ? p.names.join('、') : '沒有') + '
-今天看過：' + p.todayNames.join('、');
+    el.title = '現在在看（3 分鐘內）：' + (p.names.length ? p.names.join('、') : '沒有') + '\n今天看過：' + p.todayNames.join('、');
   }
 
   function renderStatus() {
