@@ -512,7 +512,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         '<div class="mk-sub">' + tvChangeChip(first, true) + '</div>' +
         (tvChg ? '<div class="mk-sub">' + tvChg.vs + '時 ' + int(tvChg.from) + '</div>' : '') +
         '<div class="mk-sub">' + (tvAt ? (mNow.weekend ? '週五夜盤收盤 ' : Date.now() - tvAt.getTime() > 20 * 60000 ? '最後一筆 ' : '更新 ') + stampText(tvAt) + ' ' + int(last.value) : '') + '</div>' +
-        lives.slice(1).map(c => '<div class="mk-sub">' + esc(c.name) + ' ' + int(c.last.value) + '</div>').join('') + '</div>' +
+        '</div>' +
       // 台指期和漲跌合成一格
       '<div class="mk ' + dir + '"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' +
@@ -797,7 +797,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return { name: '', settle: '三', day0: day0, slots: slotsOf('三'), live: [] };
   }
   const minOf = (ref, ms) => (ms - ref.day0.getTime()) / 60000;
-  const slotName = (s, i) => (i === SLOTS - 1 ? '結算' : WEEKDAY[s.wd] + (s.night ? '夜' : '早'));
+  const slotName = (s, i) => (i === SLOTS - 1 ? '結算' : '週' + WEEKDAY[s.wd] + (s.night ? '夜' : '早'));  // 週五夜、週一早
   function slotDate(ref, s) { const d = new Date(ref.day0.getTime() + s.d * 86400000); return (d.getMonth() + 1) + '/' + d.getDate(); }
   function whenText(ref, pos) {
     const t = timeAt(ref.slots, pos), i = slotOf(pos);
