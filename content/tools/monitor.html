@@ -457,9 +457,18 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   // 這期時間價值這一盤變多少：跟上一盤最後一筆比，前面沒資料就跟這一盤第一筆比
   // long 是行情格用的長版，寫出「比五早收盤」；頂列空間小用短版
   function tvChangeChip(c, long) {
-    if (!c || !c.last) return '';
+    const g = tvChange(c);
+    if (!g) return '';
+    const diff = g.diff, pct = g.pct, i = g.i, slots = g.slots, vs = g.vs;
+    const tone = diff > 0 ? 'chg-up' : diff === 0 ? 'chg-flat' : pct > -5 ? 'chg-d1' : pct > -15 ? 'chg-d2' : 'chg-d3';
+    const amount = (diff > 0 ? '+' : diff < 0 ? '−' : '') + int(Math.abs(diff)) + '（' + (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toFixed(1) + '%）';
+    return '<span class="tv-chg ' + tone + '" title="' + slotName(slots[i], i) + '最後一筆跟' + vs + '比">' + (long ? slotName(slots[i], i) + '比' + vs + ' ' : slotName(slots[i], i) + ' ') + amount + '</span>';
+  }
+  // 算這一盤的變化：from 是上一盤收盤（最後一筆）的值，vs 是「五早收盤」這種說法
+  function tvChange(c) {
+    if (!c || !c.last) return null;
     const slots = slotsOf(c.settle), at = posOf(slots, SETTLE_MIN - c.last.days * 1440);
-    if (at === null) return '';
+    if (at === null) return null;
     const i = slotOf(at);
     let base = null, first = null;
     c.days.forEach((d, k) => {
@@ -469,12 +478,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       else if (first === null && slotOf(p) === i) first = v;
     });
     const from = base !== null ? base : first;
-    if (!from) return '';
-    const diff = c.last.value - from, pct = diff / from * 100;
-    const tone = diff > 0 ? 'chg-up' : diff === 0 ? 'chg-flat' : pct > -5 ? 'chg-d1' : pct > -15 ? 'chg-d2' : 'chg-d3';
-    const vs = base !== null ? (i ? slotName(slots[i - 1], i - 1) : '上一盤') + '收盤' : '這盤開盤';
-    const amount = (diff > 0 ? '+' : diff < 0 ? '−' : '') + int(Math.abs(diff)) + '（' + (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toFixed(1) + '%）';
-    return '<span class="tv-chg ' + tone + '" title="' + slotName(slots[i], i) + '最後一筆跟' + vs + '比">' + (long ? slotName(slots[i], i) + '比' + vs + ' ' : slotName(slots[i], i) + ' ') + amount + '</span>';
+    if (!from) return null;
+    const diff = c.last.value - from;
+    return { i: i, slots: slots, from: from, diff: diff, pct: diff / from * 100, vs: base !== null ? (i ? slotName(slots[i - 1], i - 1) : '上一盤') + '收盤' : '這盤開盤' };
   }
   // 時間價值最後一筆是幾點的：結算日 13:30 往前推剩下的天數
   function tvStamp(c) {
@@ -490,7 +496,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const running = d.history ? d.history.contracts.filter(c => c.live && c.last) : [];
     const open = running.filter(c => !c.date || dateOf(c.date).getTime() + SETTLE_MIN * 60000 > Date.now());
     const lives = (open.length ? open : running).sort((a, b) => a.last.days - b.last.days);
-    const first = lives[0] || null, last = first ? first.last : null, tvAt = tvStamp(first), mNow = marketNow();
+    const first = lives[0] || null, last = first ? first.last : null, tvAt = tvStamp(first), mNow = marketNow(), tvChg = tvChange(first);
     const q = state.quote, fut = q && q.fut && q.fut.last ? q.fut : null, vix = q && q.vix && q.vix.last ? q.vix : null;
     const tvPts = first ? first.data.filter(v => v !== null).slice(-36) : [];
     const month = fut ? 'ABCDEFGHIJKL'.indexOf(fut.symbol.charAt(3)) + 1 : 0;
@@ -504,7 +510,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + (first.date ? '，' + daysText((dateOf(first.date).getTime() + SETTLE_MIN * 60000 - mNow.ms) / 86400000) : '') + '</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (last ? int(last.value) : '–') + '</span>' + spark(tvPts, null, 'var(--coin-deep)') + '</div>' +
         '<div class="mk-sub">' + tvChangeChip(first, true) + '</div>' +
-        '<div class="mk-sub">' + (tvAt ? (mNow.weekend ? '週五夜盤收盤 ' : Date.now() - tvAt.getTime() > 20 * 60000 ? '最後一筆 ' : '更新 ') + stampText(tvAt) : '') + lives.slice(1).map(c => '　' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
+        (tvChg ? '<div class="mk-sub">' + tvChg.vs + '時 ' + int(tvChg.from) + '</div>' : '') +
+        '<div class="mk-sub">' + (tvAt ? (mNow.weekend ? '週五夜盤收盤 ' : Date.now() - tvAt.getTime() > 20 * 60000 ? '最後一筆 ' : '更新 ') + stampText(tvAt) + ' ' + int(last.value) : '') + '</div>' +
+        lives.slice(1).map(c => '<div class="mk-sub">' + esc(c.name) + ' ' + int(c.last.value) + '</div>').join('') + '</div>' +
       // 台指期和漲跌合成一格
       '<div class="mk ' + dir + '"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' +
