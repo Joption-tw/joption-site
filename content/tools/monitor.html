@@ -490,7 +490,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const running = d.history ? d.history.contracts.filter(c => c.live && c.last) : [];
     const open = running.filter(c => !c.date || dateOf(c.date).getTime() + SETTLE_MIN * 60000 > Date.now());
     const lives = (open.length ? open : running).sort((a, b) => a.last.days - b.last.days);
-    const first = lives[0] || null, last = first ? first.last : null, tvAt = tvStamp(first);
+    const first = lives[0] || null, last = first ? first.last : null, tvAt = tvStamp(first), mNow = marketNow();
     const q = state.quote, fut = q && q.fut && q.fut.last ? q.fut : null, vix = q && q.vix && q.vix.last ? q.vix : null;
     const tvPts = first ? first.data.filter(v => v !== null).slice(-36) : [];
     const month = fut ? 'ABCDEFGHIJKL'.indexOf(fut.symbol.charAt(3)) + 1 : 0;
@@ -501,10 +501,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const vixPts = vix && vix.ticks && vix.ticks.length >= 20 ? vix.ticks : vixToday.concat(vix ? [vix.last] : []);
     const lastDigits = v => (v % 1 ? 1 : 0);
     $('market').innerHTML =
-      '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + (first.date ? '，' + daysText((dateOf(first.date).getTime() + SETTLE_MIN * 60000 - Date.now()) / 86400000) : '') + '</small>' : '') + '</h3>' +
+      '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + (first.date ? '，' + daysText((dateOf(first.date).getTime() + SETTLE_MIN * 60000 - mNow.ms) / 86400000) : '') + '</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (last ? int(last.value) : '–') + '</span>' + spark(tvPts, null, 'var(--coin-deep)') + '</div>' +
         '<div class="mk-sub">' + tvChangeChip(first, true) + '</div>' +
-        '<div class="mk-sub">' + (tvAt ? (Date.now() - tvAt.getTime() > 20 * 60000 ? '最後一筆 ' : '更新 ') + stampText(tvAt) : '') + lives.slice(1).map(c => '　' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
+        '<div class="mk-sub">' + (tvAt ? (mNow.weekend ? '週五夜盤收盤 ' : Date.now() - tvAt.getTime() > 20 * 60000 ? '最後一筆 ' : '更新 ') + stampText(tvAt) : '') + lives.slice(1).map(c => '　' + esc(c.name) + ' ' + int(c.last.value)).join('') + '</div></div>' +
       // 台指期和漲跌合成一格
       '<div class="mk ' + dir + '"><h3>台指期' + (month ? '<small>' + month + ' 月</small>' : '') + '</h3>' +
         '<div class="mk-row"><span class="mk-big">' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</span>' +
@@ -512,11 +512,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
           (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
         // 期交所的漲跌是跟結算價比，不是收盤價：日盤比前一交易日的結算價，夜盤比當天日盤的結算價
         '<div class="mk-sub">' + (fut && fut.ref ? '漲跌是比' + (/-M$/.test(fut.symbol || '') ? '日盤' : '前一交易日') + '結算價 ' + int(fut.ref) : '') + '</div>' +
-        '<div class="mk-sub">' + (q ? (/-M$/.test(fut ? fut.symbol : '') ? '夜盤' : '日盤') + '，期交所報價 ' + esc(q.at) + ' 取得' : '讀取中') + '</div></div>' +
+        '<div class="mk-sub">' + (!q ? '讀取中' : mNow.weekend ? '週末不開盤，停在週五夜盤收盤 ' + stampText(new Date(mNow.ms)) : (/-M$/.test(fut ? fut.symbol : '') ? '夜盤' : '日盤') + '，期交所報價 ' + esc(q.at) + ' 取得') + '</div></div>' +
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
         '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
         '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span> 比前一交易日收盤 ' + vix.ref.toFixed(2)) + '</div>' +
-        '<div class="mk-sub">VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值</div></div>';
+        '<div class="mk-sub">' + (mNow.weekend ? '週末不開盤，停在週五收盤' : 'VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值') + '</div></div>';
     $('ticker').innerHTML =
       '<a href="#h-tv"><small>時間價值</small><b>' + (last ? int(last.value) : '–') + '</b>' + tvChangeChip(first) + '</a>' +
       '<span><small>台指期</small><b>' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</b>' + (diff === null ? '' : '<em class="' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '（' + change(diff / fut.ref * 100, 2) + '%）</em>') + '</span>' +
@@ -546,6 +546,13 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     quoteBusy = false;
   }
 
+  // 週末不開盤：週六 05:00 到週一 08:45 之間，畫面上的時間都停在週五夜盤收盤（週六 05:00）
+  function marketNow() {
+    const n = new Date(), d = n.getDay(), hm = n.getHours() * 100 + n.getMinutes();
+    const closed = (d === 6 && hm >= 500) || d === 0 || (d === 1 && hm < 845);
+    if (!closed) return { ms: n.getTime(), weekend: false };
+    return { ms: new Date(n.getFullYear(), n.getMonth(), n.getDate() - (d + 1) % 7, 5, 0).getTime(), weekend: true };
+  }
   function daysText(d) {
     if (d <= 0) return '結算';
     const day = Math.floor(d), h = Math.round((d - day) * 24);
@@ -720,7 +727,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   }
   // 現在走到第幾盤；不在盤中就用這期最後一筆的位置
   function nowPos(h) {
-    const ref = refOf(h), p = posOf(ref.slots, minOf(ref, Date.now()));
+    const ref = refOf(h), p = posOf(ref.slots, minOf(ref, marketNow().ms));
     if (p !== null) return p;
     const c = h.contracts.find(x => x.name === ref.name);
     return c && c.last ? posOf(ref.slots, SETTLE_MIN - c.last.days * 1440) : null;
@@ -978,7 +985,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const h = state.data && state.data.history;
     if (!h) return;
     const ref = refOf(h), a = state.xr[0], b = state.xr[1];
-    const nowPos = posOf(ref.slots, minOf(ref, Date.now()));
+    const nowPos = posOf(ref.slots, minOf(ref, marketNow().ms));
     let html = '';
     if (ref.live.length > 1) html += '<div class="seg" role="group" aria-label="對齊哪一期">' + ref.live.map(c => '<button type="button" data-ref="' + esc(c.name) + '" aria-pressed="' + (c.name === ref.name) + '">' + esc(c.name) + '</button>').join('') + '</div>';
     html += '<div class="seg slots" role="group" aria-label="看哪一盤"><button type="button" data-slot="all" aria-pressed="' + (a === 0 && b === SLOTS) + '">全部</button>' +
