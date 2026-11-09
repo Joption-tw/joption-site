@@ -68,6 +68,26 @@
     window.addEventListener('resize', fit);
   });
 
+  // 分享：網址用正式網址（canonical），手機叫出系統分享選單，不支援的就複製連結
+  var bar = document.querySelector('.share');
+  if (bar) {
+    var link = document.querySelector('link[rel=canonical]');
+    var url = link ? link.href : location.href.split('#')[0];
+    var title = document.title;
+    var done = bar.querySelector('.share-done');
+    bar.querySelector('[data-line]').href = 'https://social-plugins.line.me/lineit/share?url=' + encodeURIComponent(url);
+    function copy() {
+      function ok() { done.textContent = '已複製連結'; setTimeout(function () { done.textContent = ''; }, 2500); }
+      if (navigator.clipboard) navigator.clipboard.writeText(url).then(ok, function () { prompt('複製這個連結', url); });
+      else prompt('複製這個連結', url);
+    }
+    bar.querySelector('[data-copy]').addEventListener('click', copy);
+    bar.querySelector('[data-share]').addEventListener('click', function () {
+      if (navigator.share) navigator.share({ title: title, url: url }).catch(function () {});
+      else copy();
+    });
+  }
+
   // 全站搜尋：逐字比對，中文不需要斷詞
   var input = document.getElementById('q');
   var box = document.getElementById('results');

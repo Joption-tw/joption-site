@@ -252,6 +252,14 @@ def render_md(body, used, variants):
     return re.sub(r'<img [^>]*?src="([^"]+)"[^>]*>', img, out)
 
 
+# 每頁標題下的分享列：手機叫出系統分享選單，電腦就複製連結；LINE 另外一顆
+SHARE = ('<div class="share" role="group" aria-label="分享這一頁">'
+         '<button type="button" class="share-btn" data-share>分享這一頁</button>'
+         '<a class="share-btn line" data-line href="https://social-plugins.line.me/lineit/share" target="_blank" rel="noopener">LINE</a>'
+         '<button type="button" class="share-btn" data-copy>複製連結</button>'
+         '<span class="share-done" role="status" aria-live="polite"></span></div>')
+
+
 def crumbs(page, nodes):
     bits = ['<a href="/">首頁</a>']
     for i in range(1, len(page["nav"])):
@@ -474,7 +482,7 @@ def build(base=None, preview=False):
                     f'width="1120" height="1120" alt="" fetchpriority="high"></div></div>{PAYOFF}</section>')
             body_class, full_title = "home", site["name"]
         else:
-            main = (f'{crumbs(p, nodes)}<article class="prose"><h1>{esc(p["title"])}</h1>{content}</article>'
+            main = (f'{crumbs(p, nodes)}<article class="prose"><h1>{esc(p["title"])}</h1>{SHARE}{content}</article>'
                     f'{extra}{pager}')
             hero, body_class = "", "doc"
             full_title = f'{p["title"]} | {site["name"]}'
@@ -482,6 +490,7 @@ def build(base=None, preview=False):
                                 .replace("{{title}}", esc(full_title))
                                 .replace("{{description}}", esc(p["summary"] or site["description"]))
                                 .replace("{{canonical}}", esc(site_url + p["url"]))
+                                .replace("{{og_image}}", esc(site_url + site["hero_art"]))
                                 .replace("{{site_name}}", esc(site["name"]))
                                 .replace("{{logo}}", esc(site["logo"]))
                                 .replace("{{ga_id}}", esc(site.get("ga_id", "")))

@@ -114,6 +114,17 @@ main { min-width: 0; width: 100%; max-width: 1280px; margin: 0 auto; padding: 32
 .prose h1 span, .prose h2 { background: linear-gradient(transparent 68%, var(--coin) 68%, var(--coin) 92%, transparent 92%); }
 .prose h1 { display: inline; background: linear-gradient(transparent 68%, var(--coin) 68%, var(--coin) 92%, transparent 92%); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .prose h1 + * { margin-top: 26px; }
+/* 分享列 */
+.share { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 22px; }
+.share-btn {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 14px; border: 2px solid var(--ink); border-radius: 999px;
+  background: #fff; color: var(--ink); font: inherit; font-size: 15px; font-weight: 900; line-height: 1.2; text-decoration: none; cursor: pointer;
+  box-shadow: 2px 2px 0 var(--ink); transition: transform .1s, box-shadow .1s;
+}
+.share-btn:hover { background: var(--coin); }
+.share-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+.share-btn.line { background: #06c755; color: #fff; }
+.share-done { color: var(--indigo); font-size: 15px; font-weight: 700; }
 .prose h2 { display: table; margin: 42px 0 14px; font-size: 26px; line-height: 1.35; color: var(--ink); }
 .prose h3 { margin: 32px 0 10px; font-size: 21px; line-height: 1.4; color: var(--indigo-deep); }
 .prose h4, .prose h5 { margin: 24px 0 8px; font-size: 18px; line-height: 1.4; }
