@@ -126,6 +126,18 @@ td.strong { font-weight: 900; }
 td.when { color: var(--muted); font-size: 13px; }
 .chip { display: inline-block; white-space: nowrap; margin-left: 6px; padding: 0 7px; border-radius: 99px; font-size: 11px; font-weight: 700; line-height: 1.6; vertical-align: 1px; background: var(--kraft); color: var(--ink); border: 1.5px solid var(--ink); }
 .chip.warn { background: var(--coin); }
+.chip.sure { background: var(--loss); color: var(--white); }
+button.chip { cursor: pointer; font-family: inherit; }
+button.chip:hover { box-shadow: 2px 2px 0 var(--ink); }
+.judge-pop { position: fixed; z-index: 60; width: min(340px, calc(100vw - 32px)); padding: 14px 16px; background: var(--white); border: 2px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--ink); font-size: 14px; }
+.judge-pop h4 { margin: 0 0 4px; font-size: 15px; }
+.judge-pop p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.judge-pop label { display: block; margin-bottom: 10px; font-size: 13px; font-weight: 700; }
+.judge-pop input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 10px; border: 2px solid var(--ink); border-radius: 10px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.judge-pop .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.judge-pop .acts button { padding: 6px 12px; border: 2px solid var(--ink); border-radius: 99px; background: var(--white); font-weight: 700; cursor: pointer; }
+.judge-pop .acts button.go { background: var(--indigo); color: var(--white); }
+.judge-pop .err { margin: 8px 0 0; color: var(--loss); }
 .chip.hold { background: var(--sky); }
 .meter { display: inline-flex; align-items: center; gap: 6px; }
 .meter i { position: relative; display: block; width: 44px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
@@ -596,6 +608,64 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     thead.style.transform = shift > 0 ? 'translateY(' + Math.round(shift) + 'px)' : '';
   }
 
+  // 待確認：猜是入金還是出金；有橡皮擦權限的人在每盤檢視可以點開判定
+  function flagChip(m) {
+    const g = m.judge && m.judge.guess;
+    const label = g && g.sure ? '疑似' + g.kind : '待確認';
+    const tip = '這' + (state.view === 'session' ? '盤' : '週') + ' ' + signed(m.pnl) + '（' + (m.pct > 0 ? '+' : '') + m.pct + '%），超過 8% 先不排名' +
+      (g ? '。猜是' + g.kind + (g.why ? '：' + g.why : '') : '') + (state.canErase && m.judge ? '。點一下判定' : '');
+    if (state.canErase && m.judge && state.view === 'session') return '<button type="button" class="chip warn' + (g && g.sure ? ' sure' : '') + '" data-judge="' + esc(m.name) + '" title="' + esc(tip) + '">' + label + '</button>';
+    return '<span class="chip warn' + (g && g.sure ? ' sure' : '') + '" title="' + esc(tip) + '">' + label + '</span>';
+  }
+  function judgeRow(name) {
+    const d = state.data, s = d && d.sessions && d.sessions[d.sessions.length - 1];
+    return s ? s.rows.find(r => r.name === name && r.flag && r.from) : null;
+  }
+  function closeJudge() { const el = $('judge-pop'); if (el) el.remove(); }
+  function openJudge(btn) {
+    closeJudge();
+    const r = judgeRow(btn.dataset.judge);
+    if (!r) return;
+    const g = r.guess || { kind: r.pnl > 0 ? '入金' : '出金', why: '' };
+    const el = document.createElement('div');
+    el.id = 'judge-pop'; el.className = 'judge-pop'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '判定 ' + r.name + ' 這盤');
+    el.dataset.name = r.name; el.dataset.from = r.from; el.dataset.pnl = r.pnl;
+    el.innerHTML = '<h4>' + esc(r.name) + ' 這盤 ' + signed(r.pnl) + '（' + (r.pct > 0 ? '+' : '') + r.pct + '%）</h4>' +
+      '<p>猜是' + g.kind + (g.why ? '：' + esc(g.why) : '') + '。是出入金就填實際金額，會記到「出入金」，這盤損益扣掉它；是真的賺賠就不再標待確認。</p>' +
+      '<label>出入金金額（入金正、出金負）<input id="judge-amount" type="number" inputmode="numeric" step="1" value="' + Math.round(r.pnl) + '"></label>' +
+      '<div class="acts"><button type="button" class="go" data-j="flow">是出入金，記下來</button><button type="button" data-j="real">是真的賺賠</button><button type="button" data-j="close">取消</button></div>';
+    document.body.appendChild(el);
+    const b = btn.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(16, Math.min(window.innerWidth - w - 16, b.left)) + 'px';
+    el.style.top = (b.bottom + 8 + h < window.innerHeight ? b.bottom + 8 : Math.max(16, b.top - h - 8)) + 'px';
+    $('judge-amount').focus();
+  }
+  async function sendJudge(kind) {
+    const el = $('judge-pop');
+    if (!el) return;
+    const amount = Number($('judge-amount').value);
+    const err = msg => { let e = el.querySelector('.err'); if (!e) { e = document.createElement('p'); e.className = 'err'; el.appendChild(e); } e.textContent = msg; };
+    if (kind === 'flow' && (!amount || isNaN(amount))) return err('金額要填數字，入金正、出金負。');
+    el.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    try {
+      const res = await api({ action: 'judge', token: getToken(), name: el.dataset.name, from: Number(el.dataset.from), pnl: Number(el.dataset.pnl), kind: kind, amount: amount });
+      if (!res.ok) throw new Error('no');
+      closeJudge();
+      await load(true);
+    } catch (e) {
+      el.querySelectorAll('button').forEach(b => { b.disabled = false; });
+      err('沒有記成功，可能沒有權限或連不上，再試一次。');
+    }
+  }
+  document.addEventListener('click', e => {
+    const chip = e.target.closest('[data-judge]');
+    if (chip) { e.preventDefault(); e.stopPropagation(); openJudge(chip); return; }
+    const act = e.target.closest('#judge-pop [data-j]');
+    if (act) { if (act.dataset.j === 'close') closeJudge(); else sendJudge(act.dataset.j); return; }
+    if (!e.target.closest('#judge-pop')) closeJudge();
+  }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeJudge(); });
+
   function renderTable(d) {
     // 欄位照自己拖的順序，新欄位或沒拖過的接在原本的位置
     const cols = (state.all ? COLS.concat(MORE_COLS) : COLS)
@@ -616,7 +686,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const order = m.name in rank ? rank[m.name] : state.custom.length + i;
       const pos = (d.positions && d.positions.people && d.positions.people[m.name]) || {};
       return Object.assign({}, m, {
-        order: order, pct: r ? r.pct : null, pnl: r ? r.pnl : null, flag: r ? r.flag : false,
+        order: order, pct: r ? r.pct : null, pnl: r ? r.pnl : null, flag: r ? r.flag : false, judge: r && r.flag && r.from ? r : null,
         pos: pos, entryKey: pos.carry ? -1 : timeKey(pos.in), exitKey: pos.open ? 9999 : timeKey(pos.out),
       });
     });
@@ -643,7 +713,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     rows.forEach(m => {
       const age = newest - ms(m.updated);
       let chip = '';
-      if (m.flag) chip += '<span class="chip warn" title="單期漲跌超過 8%，可能有出入金">待確認</span>';
+      if (m.flag) chip += flagChip(m);
       if (holding(m)) chip += '<span class="chip hold">有部位</span>';
       if (m.updated && age > 6 * 3600e3) chip += '<span class="chip">' + (age > 2 * 86400e3 ? Math.floor(age / 86400e3) + ' 天沒更新' : Math.floor(age / 3600e3) + ' 小時沒更新') + '</span>';
       const grip = q ? '' : '<span class="grip" role="button" tabindex="0" title="按住上下拖曳，調整順序" aria-label="調整 ' + esc(m.name) + ' 的順序，可按上下鍵移動">⋮⋮</span>';
