@@ -491,6 +491,12 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return (t.getMonth() + 1) + '/' + t.getDate() + '（' + WEEKDAY[t.getDay()] + '）' + pad2(t.getHours()) + ':' + pad2(t.getMinutes());
   }
 
+  // VIX 最新一筆的時間：期交所給的是 yyyyMMdd HHmmss；舊版資料沒有就用抓報價的時間
+  function vixAtText(vix, q) {
+    const m = vix && String(vix.at || '').match(/^(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/);
+    if (m) { const t = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]); return stampText(t) + ':' + m[6]; }
+    return vix && q && q.at ? esc(q.at) : '';
+  }
   function renderMarket(d) {
     // 快結算的放前面；結算日 13:30 以後那份已經結算，日期雖然還是今天也不算這期
     const running = d.history ? d.history.contracts.filter(c => c.live && c.last) : [];
@@ -524,7 +530,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
         '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
         '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span> 比前一交易日收盤 ' + vix.ref.toFixed(2)) + '</div>' +
-        '<div class="mk-sub">' + (mNow.weekend ? '週末不開盤，停在週五收盤' : 'VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值') + '</div></div>';
+        '<div class="mk-sub">' + (mNow.weekend ? '週末不開盤，停在週五收盤' : 'VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值') + '</div>' +
+        '<div class="mk-sub">' + (vixAtText(vix, q) ? '更新 ' + vixAtText(vix, q) : '') + '</div></div>';
     $('ticker').innerHTML =
       '<a href="#h-tv"><small>時間價值</small><b>' + (last ? int(last.value) : '–') + '</b>' + tvChangeChip(first) + '</a>' +
       '<span><small>台指期</small><b>' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</b>' + (diff === null ? '' : '<em class="' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '（' + change(diff / fut.ref * 100, 2) + '%）</em>') + '</span>' +
@@ -1280,7 +1287,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const el = $('presence');
     el.hidden = !p;
     if (!p) return;
-    el.innerHTML = '在線 <b>' + p.online + '</b> 人<span class="pres-more">，今天 ' + p.today + '，開通 ' + p.approved + '</span>';
+    el.innerHTML = '在線 <b>' + p.online + '</b> 人<span class="pres-more">，今天 ' + p.today + '</span>';
     el.title = '現在在看（3 分鐘內）：' + (p.names.length ? p.names.join('、') : '沒有') + '\n今天看過：' + p.todayNames.join('、');
   }
 
