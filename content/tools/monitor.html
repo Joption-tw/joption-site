@@ -137,7 +137,7 @@ td.when { color: var(--muted); font-size: 13px; }
 .axis-bar:empty { display: none; }
 .axis-bar .seg { max-width: 100%; overflow-x: auto; padding: 0 0 3px 3px; }
 .axis-bar .slots button { height: 32px; padding: 0 9px; font-size: 13px; flex: none; }
-.slots button.now::after { content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 4px; border-radius: 50%; background: var(--loss); vertical-align: 1px; }
+.slots .nd { display: inline-block; width: 8px; height: 8px; margin-left: 4px; border-radius: 50%; vertical-align: 1px; box-shadow: 0 0 0 1.5px var(--white); }
 .brush { position: relative; height: 14px; margin: 2px 24px 14px 58px; background: var(--paper); border: 2px solid var(--ink); border-radius: 8px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
 .brush:empty { display: none; }
 .brush-cells { display: flex; height: 100%; }
@@ -993,11 +993,16 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const h = state.data && state.data.history;
     if (!h) return;
     const ref = refOf(h), a = state.xr[0], b = state.xr[1];
-    const nowPos = posOf(ref.slots, minOf(ref, marketNow().ms));
+    // 每期現在走到哪一盤，按鈕上點一個跟線同色的點
+    const dots = ref.slots.map(() => []);
+    seriesList(h).filter(s => s.live && s.last).forEach(s => {
+      const p = posOf(slotsOf(s.settle), SETTLE_MIN - s.last.days * 1440);
+      if (p !== null) dots[slotOf(p)].push(s);
+    });
     let html = '';
     if (ref.live.length > 1) html += '<div class="seg" role="group" aria-label="對齊哪一期">' + ref.live.map(c => '<button type="button" data-ref="' + esc(c.name) + '" aria-pressed="' + (c.name === ref.name) + '">' + esc(c.name) + '</button>').join('') + '</div>';
     html += '<div class="seg slots" role="group" aria-label="看哪一盤"><button type="button" data-slot="all" aria-pressed="' + (a === 0 && b === SLOTS) + '">全部</button>' +
-      ref.slots.map((s, i) => '<button type="button" data-slot="' + i + '" aria-pressed="' + (a === i && b === i + 1) + '" title="' + slotDate(ref, s) + ' ' + slotName(s, i) + '"' + (nowPos !== null && slotOf(nowPos) === i ? ' class="now"' : '') + '>剩 ' + (SLOTS - i) + ' 盤</button>').join('') + '</div>';
+      ref.slots.map((s, i) => '<button type="button" data-slot="' + i + '" aria-pressed="' + (a === i && b === i + 1) + '" title="' + slotDate(ref, s) + ' ' + slotName(s, i) + dots[i].map(c => '，' + esc(c.name) + '現在在這盤').join('') + '">剩 ' + (SLOTS - i) + ' 盤' + dots[i].map(c => '<i class="nd" style="background:' + c.color + '"></i>').join('') + '</button>').join('') + '</div>';
     $('axis-tv').innerHTML = html;
   }
   function renderBrushes() {
