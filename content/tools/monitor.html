@@ -629,7 +629,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const g = r.guess || { kind: r.pnl > 0 ? '入金' : '出金', why: '' };
     const el = document.createElement('div');
     el.id = 'judge-pop'; el.className = 'judge-pop'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '判定 ' + r.name + ' 這盤');
-    el.dataset.name = r.name; el.dataset.from = r.from; el.dataset.pnl = r.pnl;
+    el.dataset.name = r.name; el.dataset.from = r.from; el.dataset.since = r.since || ''; el.dataset.pnl = r.pnl;
     el.innerHTML = '<h4>' + esc(r.name) + ' 這盤 ' + signed(r.pnl) + '（' + (r.pct > 0 ? '+' : '') + r.pct + '%）</h4>' +
       '<p>猜是' + g.kind + (g.why ? '：' + esc(g.why) : '') + '。是出入金就填實際金額，會記到「出入金」，這盤損益扣掉它；是真的賺賠就不再標待確認。</p>' +
       '<label>出入金金額（入金正、出金負）<input id="judge-amount" type="number" inputmode="numeric" step="1" value="' + Math.round(r.pnl) + '"></label>' +
@@ -648,7 +648,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     if (kind === 'flow' && (!amount || isNaN(amount))) return err('金額要填數字，入金正、出金負。');
     el.querySelectorAll('button').forEach(b => { b.disabled = true; });
     try {
-      const res = await api({ action: 'judge', token: getToken(), name: el.dataset.name, from: Number(el.dataset.from), pnl: Number(el.dataset.pnl), kind: kind, amount: amount });
+      const res = await api({ action: 'judge', token: getToken(), name: el.dataset.name, from: Number(el.dataset.from), since: Number(el.dataset.since) || 0, pnl: Number(el.dataset.pnl), kind: kind, amount: amount });
       if (!res.ok) throw new Error('no');
       closeJudge();
       await load(true);
