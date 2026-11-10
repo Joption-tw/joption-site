@@ -23,7 +23,6 @@ summary: 加入社群，與其他交易者交流心得。
 
 - 雙賣策略的風險與獲利心得
 - 如何靈活運用 **Joption下單機**
-- 
 
 **2. 策略驗證與績效分享**
 以 Google Sheet 彙整成員的實戰數據，進行公開透明的檢視與比較：
@@ -97,18 +96,8 @@ summary: 加入社群，與其他交易者交流心得。
 
 ---
 
-**如何設定績效分享**
+**如何分享績效**
 
-**==Google表單ID: 1cyb_6jtWU0OArRdnCrIwEGr8onXqCdU1Wk9VJEO-ycc==**
+設定一次，下單機的績效就會自動同步到同學會的 Google Sheet。完整步驟請看：
 
-![](/images/joption同學會/02.jpg)
-
----
-
-**本頁為授權google上傳資料使用(僅一次使用)**
-
-![](/images/joption同學會/03.jpg)
-
-google 表單設定
-
-**設定完成後，請與歐大聯繫以開通google sheet同學會表單。**
+[如何分享績效](/faq/如何分享績效/){.btn}
