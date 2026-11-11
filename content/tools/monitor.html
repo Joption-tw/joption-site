@@ -69,6 +69,7 @@ button, input, select { font: inherit; color: inherit; }
 .mk-chg { font-family: var(--display); font-size: clamp(22px, 2.4vw, 32px); line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .mk-chg em { font-style: normal; font-size: .6em; margin-left: 4px; }
 .mk-sub { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mk-sub .self-t { color: var(--coin-deep); font-size: 15px; }
 .mk svg { flex: 1 1 60px; min-width: 40px; max-width: 150px; height: 46px; }
 .up-t { color: var(--up); } .down-t { color: var(--down); }
 
@@ -241,6 +242,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .pill-btn:hover { background: var(--sky); }
 .vix-stats { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 12px 16px 0; font-size: 14px; }
 .vix-stats b { font-family: var(--display); font-weight: 400; font-size: 20px; margin-left: 5px; }
+.vix-stats .self b { color: var(--coin-deep); }
+.vix-key { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 4px 16px 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.vix-key i { display: inline-block; width: 16px; height: 3px; margin-right: 6px; border-radius: 2px; vertical-align: 3px; background: var(--c); }
 
 @media (max-width: 900px) {
   .market { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -333,7 +337,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <section aria-labelledby="h-vix">
     <div class="head">
       <h2 id="h-vix">VIX 波動率</h2>
-      <p>臺指選擇權波動率指數，來源是期交所。VIX 只有日盤，夜盤跳過。</p>
+      <p>臺指選擇權波動率指數。日盤是期交所公布的 VIX；期交所夜盤不公布，每天左邊淺色那段夜盤是照期交所的公式自己算的，每 2 分鐘一筆。</p>
     </div>
     <div class="card">
       <div class="vix-stats num" id="vix-stats"></div>
@@ -523,6 +527,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const vixDiff = vix && vix.ref ? vix.last - vix.ref : null;
     const vixToday = d.vix && d.vix.today ? d.vix.today : [];
     const vixPts = vix && vix.ticks && vix.ticks.length >= 20 ? vix.ticks : vixToday.concat(vix ? [vix.last] : []);
+    const nightSelf = (() => { const pts = selfPts('夜盤'), p = pts[pts.length - 1]; return p && Date.now() - p.ms < 20 * 60000 ? p : null; })();  // 夜盤進行中才顯示
     const lastDigits = v => (v % 1 ? 1 : 0);
     $('market').innerHTML =
       '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + (first.date ? '，' + daysText((dateOf(first.date).getTime() + SETTLE_MIN * 60000 - mNow.ms) / 86400000) : '') + '</small>' : '') + '</h3>' +
@@ -542,7 +547,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
         '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
         '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span> 比前一交易日收盤 ' + vix.ref.toFixed(2)) + '</div>' +
-        '<div class="mk-sub">' + (mNow.weekend ? '週末不開盤，停在週五收盤' : 'VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值') + '</div>' +
+        '<div class="mk-sub">' + (nightSelf ? '夜盤自算 <b class="self-t">' + nightSelf.v.toFixed(2) + '</b>（' + pad2(new Date(nightSelf.ms).getHours()) + ':' + pad2(new Date(nightSelf.ms).getMinutes()) + '，期交所夜盤不公布）' : mNow.weekend ? '週末不開盤，停在週五收盤' : 'VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值') + '</div>' +
         '<div class="mk-sub">' + (vixAtText(vix, q) ? '更新 ' + vixAtText(vix, q) : '') + '</div></div>';
     $('ticker').innerHTML =
       '<a href="#h-tv"><small>時間價值</small><b>' + (last ? int(last.value) : '–') + '</b>' + tvChangeChip(first) + '</a>' +
@@ -1126,8 +1131,28 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return true;
   }
 
-  // VIX 自己一條日期橫軸：最近一期結算日往回 10 個交易日（週一到週五），每天只畫日盤 08:45～13:45，夜盤跳過
-  const VIX_DAYS = 10, DAY_OPEN = 525, DAY_CLOSE = 825;
+  // VIX 自己一條日期橫軸：最近一期結算日往回 10 個交易日（週一到週五）
+  // 每天一格：左邊 NIGHT_W 是前一晚的夜盤 15:00～05:00（自算），右邊是日盤 08:45～13:45（期交所）；夜盤算下一個交易日，週五夜盤放在週一
+  const VIX_DAYS = 10, DAY_OPEN = 525, DAY_CLOSE = 825, NIGHT_W = .35;
+
+  // 自算 VIX：試算表每 15 分鐘一筆，加上最近一盤每分鐘的紀錄（那一盤以每分鐘的為準）；kind 是「日盤」「夜盤」
+  function selfPts(kind) {
+    const v = state.data && state.data.vix, live = state.vixSelf && state.vixSelf[kind === '夜盤' ? 'night' : 'day'];
+    const out = [];
+    let from = Infinity;
+    if (live && live.v) {
+      from = live.start;
+      live.v.forEach((x, i) => { if (x !== null && x !== undefined) out.push({ ms: live.start + i * 60000, v: x }); });
+    }
+    ((v && v.self) || []).forEach(r => {
+      if (r[1] !== kind) return;
+      const t = String(r[0]).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+      if (!t) return;
+      const ms = new Date(+t[1], t[2] - 1, +t[3], +t[4], +t[5]).getTime();
+      if (ms < from) out.push({ ms: ms, v: r[2] });
+    });
+    return out.sort((a, b) => a.ms - b.ms);
+  }
   function vixDays() {
     const h = state.data && state.data.history;
     const at = c => dateOf(c.date).getTime() + SETTLE_MIN * 60000;
@@ -1148,14 +1173,27 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const hi = Math.max.apply(null, all), lo = Math.min.apply(null, all);
     const now = (state.quote && state.quote.vix && state.quote.vix.last) || (v.live ? v.live.v : vals[vals.length - 1]);
     const below = vals.filter(x => x < now).length;
-    stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span><span>近 3 個月最高<b>' + hi.toFixed(2) + '</b></span><span>最低<b>' + lo.toFixed(2) + '</b></span><span>比近 3 個月 ' + Math.round(below / vals.length * 100) + '% 的日子高</span>';
+    const nightAll = selfPts('夜盤'), dayAll = selfPts('日盤');
+    const nightLast = nightAll[nightAll.length - 1], nightNow = nightLast && Date.now() - nightLast.ms < 16 * 3600000 ? nightLast : null;
+    stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span>' + (nightNow ? '<span class="self">夜盤自算<b>' + nightNow.v.toFixed(2) + '</b></span>' : '') +
+      '<span>近 3 個月最高<b>' + hi.toFixed(2) + '</b></span><span>最低<b>' + lo.toFixed(2) + '</b></span><span>比近 3 個月 ' + Math.round(below / vals.length * 100) + '% 的日子高</span>';
     const days = vixDays(), keys = days.map(d => d.toDateString());
+    const clamp = x => Math.max(0, Math.min(1, x));
+    // 時間換成橫軸位置：日盤在當天那格右邊，夜盤在下一個交易日那格左邊
     const at = ms => {
-      const d = new Date(ms), i = keys.indexOf(d.toDateString());
-      if (i < 0) return null;
-      const min = d.getHours() * 60 + d.getMinutes();
-      return i + Math.max(0, Math.min(1, (min - DAY_OPEN) / (DAY_CLOSE - DAY_OPEN)));
+      const d = new Date(ms), min = d.getHours() * 60 + d.getMinutes();
+      let day = d, frac;
+      if (min >= DAY_OPEN && min <= DAY_CLOSE + 5) frac = NIGHT_W + (1 - NIGHT_W) * clamp((min - DAY_OPEN) / (DAY_CLOSE - DAY_OPEN));
+      else if (min >= 900 || min <= 305) {
+        const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (min >= 900 ? 0 : 1));
+        day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+        while (day.getDay() === 0 || day.getDay() === 6) day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+        frac = NIGHT_W * clamp((min >= 900 ? min - 900 : min + 540) / 840);
+      } else return null;
+      const i = keys.indexOf(day.toDateString());
+      return i < 0 ? null : i + frac;
     };
+    const nPts = nightAll.map(q => ({ p: at(q.ms), v: q.v, ms: q.ms, night: true })).filter(q => q.p !== null);
     const pts = [];
     // 今天用每分鐘的紀錄，昨天以前用試算表的 15 分鐘紀錄
     const dayKey = text => { const t = String(text).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/); return t ? +t[1] * 10000 + +t[2] * 100 + +t[3] : 0; };  // 試算表的日期可能沒補零
@@ -1168,7 +1206,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       const p = at(ms);
       if (p !== null) pts.push({ p: p, v: +r[1], ms: ms });
     });
-    if (state.quote && state.quote.vix && state.quote.vix.last) {
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    if (state.quote && state.quote.vix && state.quote.vix.last && nowMin >= DAY_OPEN && nowMin <= DAY_CLOSE) {  // 期交所的即時值只在日盤加點，夜盤時它還是日盤收盤值
       const p = at(Date.now());
       if (p !== null && (!pts.length || p > pts[pts.length - 1].p)) pts.push({ p: p, v: state.quote.vix.last, ms: Date.now() });
     }
@@ -1177,7 +1216,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const W = Math.max(320, box.clientWidth - 16), H = W < 560 ? 220 : 260;
     const m = { l: 50, r: 16, t: 26, b: 26 };
     const x = q => m.l + q / VIX_DAYS * (W - m.l - m.r);
-    const use = pts.map(q => q.v);
+    const use = pts.concat(nPts).map(q => q.v);
     let yLo = Math.floor(Math.min.apply(null, use) - .5), yHi = Math.ceil(Math.max.apply(null, use) + .5);
     const step = yHi - yLo <= 4 ? 1 : yHi - yLo <= 10 ? 2 : 5;
     yLo = Math.floor(yLo / step) * step; yHi = Math.ceil(yHi / step) * step;
@@ -1189,6 +1228,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     }
     const today = new Date().toDateString(), dayPx = (W - m.l - m.r) / VIX_DAYS;
     days.forEach((d, i) => {
+      svg += '<rect x="' + x(i) + '" y="' + m.t + '" width="' + (x(i + NIGHT_W) - x(i)) + '" height="' + (H - m.t - m.b) + '" fill="var(--sky)" opacity=".35"/>';  // 夜盤那段
       svg += '<line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--line)"/>';
       if (dayPx < 34 && i % 2 && i !== VIX_DAYS - 1) return;
       const label = (d.getMonth() + 1) + '/' + d.getDate() + (dayPx >= 50 ? ' ' + WEEKDAY[d.getDay()] : '');
@@ -1208,6 +1248,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     svg += '<g clip-path="url(#vix-clip)"><path d="' + dash + '" fill="none" stroke="var(--indigo)" stroke-width="1.6" stroke-dasharray="4 4" opacity=".55"/>';
     svg += '<path d="' + solid + '" fill="none" stroke="var(--indigo)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
     if (pts.length < 40) pts.forEach(q => { svg += '<circle cx="' + x(q.p) + '" cy="' + y(q.v) + '" r="2.5" fill="var(--indigo)"/>'; });  // 只有收盤點時看得出每天一點
+    // 夜盤自算：隔超過 20 分鐘就斷開
+    let night = '';
+    nPts.forEach((q, i) => { night += (i && q.ms - nPts[i - 1].ms <= 20 * 60000 ? 'L' : 'M') + x(q.p).toFixed(1) + ' ' + y(q.v).toFixed(1); });
+    if (night) svg += '<path d="' + night + '" fill="none" stroke="var(--coin-deep)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    if (nPts.length && nPts.length < 3) nPts.forEach(q => { svg += '<circle cx="' + x(q.p) + '" cy="' + y(q.v) + '" r="2.5" fill="var(--coin-deep)"/>'; });
     svg += '</g>';
     const last = pts[pts.length - 1];
     {
@@ -1215,20 +1260,33 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       svg += '<circle cx="' + ex + '" cy="' + ey + '" r="5.5" fill="var(--indigo)" stroke="var(--white)" stroke-width="2"/>';
       svg += '<text class="tag" x="' + (ex + (right ? 10 : -10)) + '" y="' + Math.max(m.t + 12, ey - 12) + '" text-anchor="' + (right ? 'start' : 'end') + '" style="fill:var(--indigo)">' + last.v.toFixed(2) + '</text>';
     }
+    const nl = nPts[nPts.length - 1];
+    if (nl && nl.ms > last.ms) {  // 夜盤進行中：自算的最後一點也標出來
+      const ex = x(nl.p), ey = y(nl.v), right = ex < W - m.r - 70;
+      svg += '<circle cx="' + ex + '" cy="' + ey + '" r="5.5" fill="var(--coin-deep)" stroke="var(--white)" stroke-width="2"/>';
+      svg += '<text class="tag" x="' + (ex + (right ? 10 : -10)) + '" y="' + Math.min(H - m.b - 4, ey + 20) + '" text-anchor="' + (right ? 'start' : 'end') + '" style="fill:var(--ink)">夜 ' + nl.v.toFixed(2) + '</text>';
+    }
     svg += '<line id="vix-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/></svg>';
-    box.innerHTML = svg + '<div class="tip" id="vix-tip" hidden></div>';
+    const key = '<div class="vix-key"><span><i style="--c:var(--indigo)"></i>期交所 VIX（日盤）</span><span><i style="--c:var(--coin-deep)"></i>自算（夜盤）</span></div>';
+    box.innerHTML = key + svg + '<div class="tip" id="vix-tip" hidden></div>';
+    // 日盤每個點找同一分鐘附近的自算值，提示框一起列出來比對
+    const selfAt = ms => { let b = null; dayAll.forEach(q => { if (Math.abs(q.ms - ms) <= 3 * 60000 && (!b || Math.abs(q.ms - ms) < Math.abs(b.ms - ms))) b = q; }); return b; };
+    const allPts = pts.concat(nPts);
     const el = $('vix-svg'), tip = $('vix-tip'), cross = $('vix-cross');
     const tol = .3;
     el.addEventListener('pointermove', e => {
       const r = el.getBoundingClientRect();
       const p = Math.max(0, Math.min(VIX_DAYS, ((e.clientX - r.left) / r.width * W - m.l) / (W - m.l - m.r) * VIX_DAYS));
       let best = null;
-      pts.forEach(q => { if (Math.abs(q.p - p) <= tol && (!best || Math.abs(q.p - p) < Math.abs(best.p - p))) best = q; });
+      allPts.forEach(q => { if (Math.abs(q.p - p) <= tol && (!best || Math.abs(q.p - p) < Math.abs(best.p - p))) best = q; });
       const px = best ? x(best.p) : x(p);
       cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('visibility', 'visible');
       const dd = days[Math.min(VIX_DAYS - 1, Math.floor(p))], dayText = (dd.getMonth() + 1) + '/' + dd.getDate() + '（' + WEEKDAY[dd.getDay()] + '）';
       const bt = best && new Date(best.ms);
-      tip.innerHTML = best ? '<b>' + (bt.getMonth() + 1) + '/' + bt.getDate() + '（' + WEEKDAY[bt.getDay()] + '）' + pad2(bt.getHours()) + ':' + pad2(bt.getMinutes()) + '</b><div><span>VIX</span><span>' + best.v.toFixed(2) + '</span></div>'
+      const sv = best && !best.night ? selfAt(best.ms) : null;
+      tip.innerHTML = best ? '<b>' + (bt.getMonth() + 1) + '/' + bt.getDate() + '（' + WEEKDAY[bt.getDay()] + '）' + pad2(bt.getHours()) + ':' + pad2(bt.getMinutes()) + (best.night ? ' 夜盤' : '') + '</b>' +
+          (best.night ? '<div><span>自算 VIX</span><span>' + best.v.toFixed(2) + '</span></div>' : '<div><span>期交所 VIX</span><span>' + best.v.toFixed(2) + '</span></div>' +
+            (sv ? '<div><span>自算</span><span>' + sv.v.toFixed(2) + '<small>差 ' + change(sv.v - best.v, 2) + '</small></span></div>' : ''))
         : '<b>' + dayText + '</b><div>這段沒有資料</div>';
       tip.hidden = false;
       const left = px / W * r.width;
@@ -1444,6 +1502,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       state.canHistory = !!res.canHistory;
       renderPresence(res.presence);
       state.vixToday = res.vixToday || [];
+      state.vixSelf = res.vixSelf || null;
       if (!state.canErase) state.eraseOn = false;
       state.lastOk = Date.now();
       showGate(false);
