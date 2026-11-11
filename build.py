@@ -130,9 +130,10 @@ def contains(n, url):
 def render_nav(items, current, depth=0, preview=False):
     out = ['<ul>']
     for n in items:
-        if n["hidden"]:
+        if n["hidden"] and not preview:
             continue
-        kids = [k for k in n["children"] if not k["hidden"]]
+        # 本機預覽也列出隱藏頁（平常看不到，調整選單時才淡淡顯示），才能改回顯示
+        kids = [k for k in n["children"] if preview or not k["hidden"]]
         link = page_link(n)
         active = current == n["url"]
         inside = contains(n, current)
@@ -141,6 +142,8 @@ def render_nav(items, current, depth=0, preview=False):
         attr = ""
         if preview:  # 只有本機預覽才帶這些資料，拖曳存檔時用
             attr = f' data-file="{esc(n["page"]["file"])}"' if n["page"] else f' data-group="{esc(n["title"])}"'
+            if n["hidden"]:
+                attr += ' data-hidden="1"'
         if kids:
             out.append(f'<li{attr}><details{" open" if inside else ""}><summary>{label}</summary>'
                        f'{render_nav(kids, current, depth + 1, preview)}</details></li>')
@@ -357,56 +360,79 @@ def write_meta(rel, **changes):
 
 
 def save_order(items):
-    """把拖曳後的選單寫回各頁的 order 和 menu。內容對不起來就整批不存。"""
+    """把拖曳後的選單寫回各頁的 order、menu、hidden，並刪掉標記刪除的頁。內容對不起來就整批不存。"""
     pages = collect_pages()
     top, nodes = build_tree(pages)
     by_file = {p["file"]: p for p in pages}
     by_url = {p["url"]: p for p in pages}
     groups = {n["title"] for n in nodes.values() if not n["page"]}
 
-    def visible(rows):
+    def listed(rows):
         for n in rows:
-            if not n["hidden"]:
-                if n["page"]:
-                    yield n["page"]["file"]
-                yield from visible(n["children"])
+            if n["page"]:
+                yield n["page"]["file"]
+            yield from listed(n["children"])
 
-    new_nav, seq = {}, []
+    new_nav, seq, hide, delete = {}, [], {}, []
 
     def walk(rows, parent):
         if not isinstance(rows, list):
             raise ValueError("資料格式不對")
         for row in rows:
             file, group = row.get("file"), row.get("group")
+            kids = row.get("children", [])
             if file in by_file:
                 path = parent + by_file[file]["parts"][-1:]
                 new_nav[file] = path
                 seq.append(file)
+                hide[file] = bool(row.get("hidden"))
+                if row.get("delete"):
+                    if kids and not all(k.get("delete") for k in kids):
+                        raise ValueError(f"「{by_file[file]['title']}」裡面還有頁面，先把它們移出來或一起刪掉")
+                    delete.append(file)
             elif group in groups:
                 path = parent + [group]
             else:
                 raise ValueError("選單裡有不認識的項目，請重新整理後再試")
-            walk(row.get("children", []), path)
+            walk(kids, path)
 
     walk(items, [])
-    if len(seq) != len(set(seq)) or set(seq) != set(visible(top)):
+    if len(seq) != len(set(seq)) or set(seq) != set(listed(top)):
         raise ValueError("選單和目前的檔案對不起來，請重新整理後再試")
-    paths = [tuple(v) for v in new_nav.values()]
+    paths = [tuple(v) for f, v in new_nav.items() if f not in delete]
     if len(paths) != len(set(paths)):
         raise ValueError("同一個分類裡有兩個同名的頁面")
 
     changes = []
-    for i, file in enumerate(seq):
+    keep = [f for f in seq if f not in delete]
+    for i, file in enumerate(keep):
         p = by_file[file]
         folder = p["parts"][:-1]
         owner = by_url.get("/" + "".join(x + "/" for x in folder)) if folder else None
         default = (new_nav.get(owner["file"], owner["nav"]) if owner else folder)
         wanted = new_nav[file][:-1]
         menu = None if wanted == default else ("/".join(wanted) or "/")
-        changes.append((file, str((i + 1) * 10), menu))
-    for file, order, menu in changes:
-        write_meta(file, order=order, menu=menu)
-    return len(changes)
+        changes.append((file, str((i + 1) * 10), menu, "true" if hide[file] else None))
+    for file, order, menu, hidden in changes:
+        write_meta(file, order=order, menu=menu, hidden=hidden)
+
+    removed = []
+    for file in delete:
+        os.remove(os.path.join(CONTENT, file))
+        removed.append(by_file[file]["title"])
+    # 頁面專用的圖片資料夾，沒有別頁在用就一起刪
+    remaining = [p for p in pages if p["file"] not in delete]
+    for file in delete:
+        stem = by_file[file]["parts"][-1]
+        folder = os.path.join(CONTENT, "images", stem)
+        if os.path.isdir(folder) and not any(f"/images/{stem}/" in p["body"] for p in remaining):
+            shutil.rmtree(folder)
+        # 頁面裡內嵌的互動工具，也是沒有別頁在用就刪
+        for name in re.findall(r"\[\[tool:([^\]]+)\]\]", by_file[file]["body"]):
+            tool = os.path.join(CONTENT, "tools", name.strip() + ".html")
+            if os.path.isfile(tool) and not any(f"[[tool:{name}]]" in p["body"] for p in remaining):
+                os.remove(tool)
+    return {"pages": len(changes), "removed": removed, "hidden": sum(1 for c in changes if c[3])}
 
 
 def build(base=None, preview=False):
@@ -617,12 +643,12 @@ if __name__ == "__main__":
                 try:
                     items = json.loads(self.rfile.read(size))
                     with BUILD_LOCK:
-                        count = save_order(items)
-                        build("", preview=True)
+                        result = save_order(items)
+                        problems = build("", preview=True)
                         WATCH["last"] = snapshot()
                 except (ValueError, KeyError, TypeError, AttributeError) as e:
                     return self.reply(400, error=str(e))
-                self.reply(200, ok=True, pages=count)
+                self.reply(200, ok=True, problems=problems, **result)
 
         print(f"預覽網址：http://localhost:{PORT}/")
         server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)

@@ -1,6 +1,7 @@
 ---
 title: 初學者必備的選擇權知識
-order: 20
+order: 520
+menu: faq
 ---
 
 <div class="btn-row" markdown="1">

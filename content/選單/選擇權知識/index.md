@@ -1,6 +1,6 @@
 ---
 title: 選擇權知識
-order: 540
+order: 500
 menu: faq
 ---
 
