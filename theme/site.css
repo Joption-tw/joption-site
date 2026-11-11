@@ -350,3 +350,21 @@ iframe.embed { height: 1157px; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* 首頁訪客人數 */
+.visits { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin: 0 auto 32px; }
+.visits[hidden] { display: none; }
+.visit { min-width: 150px; padding: 10px 18px; border: var(--edge); border-radius: 14px; box-shadow: var(--pop); background: #fff; text-align: center; }
+.visit:nth-child(1) { background: var(--coin); }
+.visit:nth-child(2) { background: var(--sky); }
+.visit b { display: block; font-family: var(--display); font-size: 30px; font-weight: 400; line-height: 1.15; color: var(--ink); }
+.visit span { font-size: 14px; font-weight: 700; color: var(--muted); }
+.visit:nth-child(2) span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--put); vertical-align: 1px; animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .visit:nth-child(2) span::before { animation: none; } }
+@media (max-width: 640px) {
+  .visits { gap: 10px; }
+  .visit { min-width: 0; flex: 1 1 0; padding: 8px 6px; }
+  .visit b { font-size: 24px; }
+  .visit span { font-size: 13px; }
+}

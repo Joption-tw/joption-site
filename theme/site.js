@@ -135,3 +135,40 @@
     if (e.key === 'Escape') { box.hidden = true; input.blur(); }
   });
 })();
+
+// 訪客人數：每一頁都回報（一個瀏覽器一天算一次），首頁才顯示。網址在 site.toml 的 counter_url。
+(function () {
+  var url = document.documentElement.dataset.counter;
+  if (!url) return;
+  var box = document.querySelector('.visits');
+  var id = '', hit = true;
+  var today = new Date().toLocaleDateString('sv', { timeZone: 'Asia/Taipei' });
+  try {
+    id = localStorage.getItem('jo-visitor') || '';
+    if (!id) {
+      id = Math.random().toString(36).slice(2, 14);
+      localStorage.setItem('jo-visitor', id);
+    }
+    hit = localStorage.getItem('jo-day') !== today;
+  } catch (e) {}
+  if (!id) id = Math.random().toString(36).slice(2, 14);
+  function show(d) {
+    if (!box || typeof d.total !== 'number') return;
+    ['today', 'online', 'total'].forEach(function (k) {
+      box.querySelector('[data-k="' + k + '"]').textContent = Number(d[k]).toLocaleString('zh-TW');
+    });
+    box.hidden = false;
+  }
+  function ping(count) {
+    return fetch(url + '?id=' + id + (count ? '&hit=1' : ''))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (count) try { localStorage.setItem('jo-day', today); } catch (e) {}
+        show(d);
+      })
+      .catch(function () {});
+  }
+  ping(hit);
+  // 開著網站時每 2 分鐘報到一次，在線人數才準
+  setInterval(function () { if (document.visibilityState === 'visible') ping(false); }, 120000);
+})();

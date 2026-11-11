@@ -137,7 +137,9 @@ def render_nav(items, current, depth=0, preview=False):
         link = page_link(n)
         active = current == n["url"]
         inside = contains(n, current)
-        label = (f'<a href="{esc(link)}"{" aria-current=page" if active else ""}>{esc(n["title"])}</a>'
+        # 連到別的網站時另開分頁
+        outside = ' target="_blank" rel="noopener"' if link and link.startswith("http") else ""
+        label = (f'<a href="{esc(link)}"{" aria-current=page" if active else ""}{outside}>{esc(n["title"])}</a>'
                  if link else f'<span>{esc(n["title"])}</span>')
         attr = ""
         if preview:  # 只有本機預覽才帶這些資料，拖曳存檔時用
@@ -496,7 +498,10 @@ def build(base=None, preview=False):
             pager += "</nav>"
         if p["layout"] == "home":
             cards = "".join(card(c["title"], c["url"], c.get("summary", ""), c.get("icon")) for c in site["home_cards"])
-            main = (f'<div class="home-body"><div class="prose">{content}</div>'
+            visits = ('<div class="visits" hidden aria-label="訪客人數">' + "".join(
+                f'<div class="visit"><b data-k="{k}">–</b><span>{label}</span></div>'
+                for k, label in (("today", "今天人數"), ("online", "在線人數"), ("total", "累積人數"))) + "</div>")
+            main = (f'<div class="home-body">{visits}<div class="prose">{content}</div>'
                     f'<div class="cards home-cards">{cards}</div></div>')
             art = variants[site["hero_art"]]
             srcset = ", ".join(f"{u} {w}w" for u, w in art)
@@ -520,6 +525,7 @@ def build(base=None, preview=False):
                                 .replace("{{site_name}}", esc(site["name"]))
                                 .replace("{{logo}}", esc(site["logo"]))
                                 .replace("{{ga_id}}", esc(site.get("ga_id", "")))
+                                .replace("{{counter}}", esc(site.get("counter_url", "")))
                                 .replace("{{nav}}", render_nav(tree, p["url"], preview=preview))
                                 .replace("{{hero}}", hero)
                                 .replace("{{body_class}}", body_class)
@@ -551,14 +557,17 @@ def build(base=None, preview=False):
         if p["redirect"]:
             dest = os.path.join(tmp, p["url"].lstrip("/"), "index.html")
             os.makedirs(os.path.dirname(dest), exist_ok=True)
+            outside = p["redirect"].startswith("http")
+            target = p["redirect"] if outside else base + p["redirect"]
+            canon = p["redirect"] if outside else site_url + p["redirect"]
             open(dest, "w", encoding="utf-8", newline="\n").write(
-                f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={esc(base + p["redirect"])}">'
-                f'<link rel="canonical" href="{esc(site_url + p["redirect"])}"><title>{esc(p["title"])}</title>')
+                f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={esc(target)}">'
+                f'<link rel="canonical" href="{esc(canon)}"><title>{esc(p["title"])}</title>')
 
     json.dump(search, open(os.path.join(tmp, "search.json"), "w", encoding="utf-8"), ensure_ascii=False)
     notfound = template.replace("{{title}}", "找不到頁面").replace("{{description}}", "").replace("{{canonical}}", esc(site_url + "/")) \
         .replace("{{site_name}}", esc(site["name"])).replace("{{logo}}", esc(site["logo"])) \
-        .replace("{{ga_id}}", "").replace("{{nav}}", render_nav(tree, "")).replace("{{hero}}", "").replace("{{body_class}}", "doc") \
+        .replace("{{ga_id}}", "").replace("{{counter}}", "").replace("{{nav}}", render_nav(tree, "")).replace("{{hero}}", "").replace("{{body_class}}", "doc") \
         .replace("{{main}}", '<article class="prose"><h1>找不到這個頁面</h1><p>網址可能已經更動，請從左側選單或搜尋找找看，或<a href="/">回首頁</a>。</p></article>') \
         .replace("{{footer_links}}", foot)
     open(os.path.join(tmp, "404.html"), "w", encoding="utf-8", newline="\n").write(with_base(notfound, base))
