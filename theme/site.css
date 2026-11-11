@@ -198,6 +198,9 @@ iframe.embed { height: 1157px; }
 .tool-box { position: relative; margin: 12px 0 20px; }
 .tool-box::before { content: "工具載入中，第一次開啟可能要等幾秒…"; position: absolute; top: 40px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 15px; }
 .tool-box iframe.tool { position: relative; margin: 0; background: transparent; }
+.tool-box.plain iframe.tool { border: 0; border-radius: 0; }
+.tool-box.ready::before { content: none; }
+.tool-box.ready iframe.tool { min-height: 0; }
 
 /* 卡片 */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }

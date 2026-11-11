@@ -161,8 +161,11 @@ def macro(m):
         return (f'<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/{esc(value)}" '
                 'title="YouTube 影片" loading="lazy" allowfullscreen></iframe></div>')
     if kind == "tool":
-        return (f'<div class="tool-box"><iframe class="tool" src="/tools/{esc(value)}.html" '
-                f'title="{esc(value)}" loading="lazy"></iframe></div>')
+        # [[tool:名稱 plain]]：不要外框，看起來像直接寫在網頁上
+        name, _, opt = value.partition(" ")
+        plain = " plain" if opt.strip() == "plain" else ""
+        return (f'<div class="tool-box{plain}"><iframe class="tool" src="/tools/{esc(name)}.html" '
+                f'title="{esc(name)}" loading="lazy"></iframe></div>')
     if kind == "report":
         return (f'<div class="report-box"><iframe src="{esc(value)}" title="即時績效" loading="lazy" '
                 'allow="clipboard-write"></iframe></div>')

@@ -41,15 +41,22 @@
       try {
         var doc = frame.contentDocument;
         if (!doc || !doc.documentElement) return;
-        var h = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0);
-        if (h > 100) frame.style.height = h + 'px';
+        if (!doc.body) return;
+        // 量內容實際到哪裡，不用 scrollHeight：它至少是框的高度，框只會變大不會縮
+        var body = doc.body, view = doc.defaultView;
+        var h = Math.ceil(body.getBoundingClientRect().bottom + (parseFloat(view.getComputedStyle(body).marginBottom) || 0) + view.scrollY);
+        if (h > 100 && Math.abs(h - frame.offsetHeight) > 1) frame.style.height = h + 'px';
       } catch (e) {}
     }
     frame.addEventListener('load', function () {
       fit();
+      frame.parentNode.classList.add('ready');
       try {
-        new ResizeObserver(fit).observe(frame.contentDocument.body);
+        // 要用框裡面那一頁自己的 ResizeObserver，外面這頁的看不到框裡的尺寸變化
+        new frame.contentWindow.ResizeObserver(fit).observe(frame.contentDocument.body);
       } catch (e) {}
+      // 保險：報價、字型晚到時內容會變高，每秒再量一次（沒變就不動）
+      setInterval(fit, 1000);
     });
   });
 
