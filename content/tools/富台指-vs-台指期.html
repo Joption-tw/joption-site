@@ -3,343 +3,546 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>J-Option 富台指換算 - 最終優化版</title>
+    <title>富台指轉換器-歐大選擇權教室</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, increment, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 優先使用環境配置，若無則使用開發備用配置
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "AIzaSyBbmE0-4WIagYgJ-QIT-3vWXgOo3cu6XaE",
+                authDomain: "ftse-taiwan-index-futures.firebaseapp.com",
+                projectId: "ftse-taiwan-index-futures",
+                storageBucket: "ftse-taiwan-index-futures.firebasestorage.app",
+                messagingSenderId: "773347655083",
+                appId: "1:773347655083:web:d703fced4b5dd2bbd9e6ee"
+            };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'joption-academy-v1';
 
         try {
-            const firebaseConfig = JSON.parse(__firebase_config);
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
             const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'joption-stats-v1';
 
+            // 將工具掛載至 window 供後續腳本使用
             window.firebaseTools = { 
-                db, auth, appId, increment, doc, setDoc, collection, onSnapshot, 
-                signInAnonymously, signInWithCustomToken 
+                db, auth, appId, increment, doc, setDoc, getDoc, collection, onSnapshot, 
+                signInAnonymously, signInWithCustomToken, onAuthStateChanged 
             };
         } catch (e) {
-            console.error("Firebase Init Error");
+            console.error("Firebase 初始化失敗:", e);
         }
     </script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
+        :root {
+            --primary: #f59e0b;
+            --secondary: #1e293b;
+        }
+
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
-            background: #ffffff; 
+            background: #f8fafc;
             color: #1e293b;
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .full-screen-wrap {
-            width: 100%;
+        .app-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
 
-        .price-glow {
-            text-shadow: 0 0 15px rgba(245, 158, 11, 0.1);
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .price-text {
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
         }
 
         .up-trend { color: #ef4444; } 
         .down-trend { color: #10b981; } 
 
-        .data-section {
-            padding: 15px 0;
-            border-bottom: 1px solid #f1f5f9;
-            position: relative;
-            background: #ffffff;
-        }
-
-        /* 水印 JOPTION */
         .watermark {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             opacity: 0.03;
             font-weight: 900;
-            font-style: italic;
             pointer-events: none;
-            user-select: none;
             z-index: 0;
+            user-select: none;
             font-size: 15vw;
-            letter-spacing: -0.02em;
         }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-soft { animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
-<body>
+<body class="md:p-4">
 
-<div class="full-screen-wrap">
-    
-    <!-- Navbar: 極簡標題 -->
-    <nav class="bg-white border-b border-slate-100 py-2.5 px-4">
-        <h1 class="text-lg md:text-2xl font-black tracking-tight text-center text-slate-800 uppercase">
-            富台指與台指期換算
-        </h1>
-    </nav>
-
-    <!-- 狀態列 -->
-    <div class="flex justify-between items-center px-4 py-1.5 bg-slate-50 text-[10px] md:text-xs border-b border-slate-100">
-        <div class="font-bold text-slate-500 flex items-center gap-1.5">
-            <span class="relative flex h-2 w-2">
-                <span id="update-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-            </span>
-            更新：<span id="last-update-time" class="font-mono text-slate-900 font-bold">讀取中</span>
+<div class="app-container">
+    <!-- 頂部導航 -->
+    <header class="sticky top-0 z-50 glass-card md:rounded-2xl mt-0 md:mt-2 mb-4 px-4 py-3 md:px-6 flex justify-between items-center border-x-0 md:border-x">
+        <div class="flex flex-col">
+            <div class="flex items-baseline gap-2">
+                <h1 class="text-lg md:text-2xl font-black text-slate-800 tracking-tight leading-none">
+                    富台指轉換器<span class="text-amber-500 font-normal">-</span>歐大選擇權教室
+                </h1>
+                <span class="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-mono font-bold">v2.9.8</span>
+            </div>
+            <p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">FTSE Taiwan Index Converter</p>
         </div>
-        <div class="flex items-center gap-1.5 font-bold text-slate-500">
-            <span id="sync-dot" class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-            同步：<span id="countdown" class="text-amber-600 font-mono">15</span>s
+        
+        <div class="flex items-center gap-2 md:gap-4">
+            <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                <div id="sync-dot" class="w-2 h-2 rounded-full bg-slate-300"></div>
+                <span class="text-[11px] md:text-xs font-bold text-slate-500 font-mono">
+                    REFRESH: <span id="countdown" class="text-amber-600">5</span>S
+                </span>
+            </div>
+            
+            <button onclick="toggleSettings()" class="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- 基準設定 (面板) -->
+    <div id="settings-panel" class="hidden mx-2 md:mx-0 mb-4 overflow-hidden rounded-2xl bg-white border border-amber-100 shadow-xl shadow-amber-900/5">
+        <div class="p-5 md:p-8">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span class="p-1 bg-amber-100 text-amber-600 rounded">⚙️</span> 基準數值設定
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">基準台指期 (TX)</label>
+                    <input type="number" id="input-base-tx" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-amber-500 outline-none font-mono font-bold" placeholder="32877">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">基準富台指 (FT)</label>
+                    <input type="number" id="input-base-ft" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-amber-500 outline-none font-mono font-bold" placeholder="2836">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">基準日期</label>
+                    <input type="date" id="input-base-date" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-amber-500 outline-none font-bold">
+                </div>
+            </div>
+            <div class="mt-6 flex gap-3">
+                <button onclick="toggleSettings()" class="flex-1 py-3 text-slate-400 font-bold hover:bg-slate-50 rounded-xl transition-colors">取消</button>
+                <button id="save-btn" onclick="saveSettings()" class="flex-[2] py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-200 active:scale-[0.98] transition-all">儲存基準</button>
+            </div>
         </div>
     </div>
 
-    <!-- 數據核心：取消卡片設計，填滿寬度 -->
-    <main class="w-full flex-grow">
-        
-        <div class="data-section overflow-hidden">
-            <div class="watermark uppercase">JOPTION</div>
-            
-            <div class="relative z-10 flex flex-col items-center space-y-5 md:space-y-10">
-                <!-- 目前富台指 -->
-                <div class="text-center w-full px-4">
-                    <label class="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest block mb-1.5">目前富台指 (SGX)</label>
-                    <div id="futai-val" class="text-5xl md:text-7xl font-mono font-black tracking-tighter text-slate-900 leading-none">讀取中</div>
+    <main class="flex-grow px-2 md:px-0 space-y-4 relative">
+        <div class="watermark">J-OPTION</div>
+
+        <!-- 主顯示卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+            <!-- 目前富台 -->
+            <div class="glass-card rounded-3xl p-6 md:p-8 flex flex-col justify-between min-h-[160px] md:min-h-[200px]">
+                <div>
+                    <span class="inline-block px-2 py-0.5 bg-slate-800 text-white text-[10px] font-black rounded mb-2 uppercase tracking-tighter">Live Stream</span>
+                    <h2 class="text-sm font-bold text-slate-400 tracking-wider">富台指目前最新價</h2>
+                </div>
+                <div id="futai-val" class="text-5xl md:text-7xl font-black text-slate-900 price-text my-2">
+                    <span class="animate-soft text-slate-200">---.--</span>
+                </div>
+                <div class="text-[10px] md:text-xs text-slate-400 font-medium italic">
+                    Updated: <span id="last-update-time" class="font-mono text-slate-500">-</span>
+                </div>
+            </div>
+
+            <!-- 預估台指 -->
+            <div class="bg-white rounded-3xl p-6 md:p-8 border-2 border-amber-500/20 shadow-2xl shadow-amber-500/5 flex flex-col justify-between min-h-[160px] md:min-h-[200px]">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="inline-block px-2 py-0.5 bg-amber-500 text-white text-[10px] font-black rounded mb-2 uppercase tracking-tighter">Calculation</span>
+                        <h2 class="text-sm font-bold text-amber-600/80 tracking-wider uppercase">預估台指期價格</h2>
+                    </div>
+                    <div id="status-indicator" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
+                </div>
+                
+                <div id="tx-val" class="text-6xl md:text-8xl font-black text-amber-500 price-text leading-none py-1">
+                    ----
                 </div>
 
-                <!-- 裝飾性分隔 -->
-                <div class="w-20 h-[1px] bg-slate-100"></div>
-
-                <!-- 預估台指期 (字體大小與上方完全一致) -->
-                <div class="text-center w-full px-4">
-                    <label class="text-[10px] md:text-xs font-black text-amber-600 uppercase tracking-widest block mb-1.5">預估台指期 (TX)</label>
-                    <div id="tx-val" class="text-5xl md:text-7xl font-mono font-black text-amber-500 price-glow leading-none mb-4">---</div>
-                    
-                    <!-- 漲跌幅區塊 -->
-                    <div id="diff-container" class="inline-flex flex-col items-center hidden bg-slate-50/80 backdrop-blur-sm px-5 py-2 rounded-2xl border border-slate-100">
-                        <div class="text-[9px] md:text-xs font-bold text-slate-400 mb-1 uppercase tracking-tighter">
-                            較 2/14 04:59 封關 <span class="text-slate-600 font-mono">33969</span>
-                        </div>
-                        <div id="diff-display" class="flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl">
+                <!-- 比較區域 (依照圖片樣式修復) -->
+                <div id="diff-container" class="hidden flex flex-col md:flex-row md:items-center gap-2 pt-2 border-t border-slate-50 mt-2">
+                    <div class="flex items-center gap-3">
+                        <div id="diff-display" class="flex items-center gap-1 font-black text-xl md:text-2xl font-mono">
                             <span id="diff-arrow"></span>
-                            <span id="diff-points">---</span>
-                            <span id="diff-percent" class="text-[10px] md:text-lg opacity-80 font-bold ml-1">(---%)</span>
+                            <span id="diff-points">0</span>
+                        </div>
+                        <div id="diff-percent" class="text-xs md:text-sm font-bold text-slate-400">
+                            (0.00%)
+                        </div>
+                    </div>
+                    
+                    <div class="md:ml-auto text-right text-[10px] font-bold text-slate-300 uppercase leading-tight">
+                        <div>與 <span id="base-label-short" class="text-slate-400 font-black">--/--</span> 收盤價比較</div>
+                        <div class="italic opacity-80 mt-0.5">
+                            基準: TX <span id="base-tx-display" class="font-mono">--</span> / FT <span id="base-ft-display" class="font-mono">--</span>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 功能與連結：全螢幕橫向排版 -->
-        <div class="w-full bg-slate-50 p-3 space-y-2">
-            <!-- 社群連結：新增「立刻加入」按鈕 -->
-            <a href="https://line.me/ti/g2/LqMZMyJ1RZSCoIGXdKOE8EWQDoybMtmzAk3D8A" target="_blank" class="w-full flex items-center justify-between bg-white border border-slate-200 p-3.5 rounded-xl active:bg-slate-50 transition-all">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center text-white text-base shadow-sm">👥</div>
-                    <div>
-                        <h4 class="text-xs md:text-sm font-black text-slate-800 leading-tight">歐伯供選擇權大小事</h4>
-                        <p class="text-[9px] text-slate-400 font-medium">即時掌握行情脈動</p>
-                    </div>
+        <!-- 導航連結 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 relative z-10">
+            <a href="http://learn.joption.com.tw/" target="_blank" class="flex items-center gap-4 p-4 bg-emerald-500 text-white rounded-2xl hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-emerald-500/10">
+                <div class="p-2 bg-white/20 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2v-5"/></svg>
                 </div>
-                <span class="bg-slate-800 text-white text-[10px] font-black px-4 py-1.5 rounded-lg whitespace-nowrap shadow-sm">立刻加入</span>
+                <div>
+                    <div class="text-[10px] font-bold opacity-80 uppercase">Academy</div>
+                    <div class="text-sm font-black">歐大選擇權教室</div>
+                </div>
+            </a>
+            
+            <a href="https://line.me/ti/g2/LqMZMyJ1RZSCoIGXdKOE8EWQDoybMtmzAk3D8A" target="_blank" class="flex items-center gap-4 p-4 bg-slate-900 text-white rounded-2xl hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-slate-900/10">
+                <div class="p-2 bg-white/20 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-amber-500 uppercase">Community</div>
+                    <div class="text-sm font-black">歐伯供大小事</div>
+                </div>
             </a>
 
-            <!-- 下單機廣告 -->
-            <a href="/" target="_blank" class="w-full flex items-center justify-between bg-slate-900 border border-slate-800 p-3.5 rounded-xl active:opacity-90 transition-all overflow-hidden relative">
-                <div class="relative z-10 flex items-center gap-3">
-                    <div class="w-9 h-9 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-base shadow-inner">⚡</div>
-                    <div>
-                        <h4 class="text-xs md:text-sm font-black text-amber-500 italic leading-tight">選擇權雙賣平衡下單機</h4>
-                        <p class="text-[9px] text-slate-400 font-medium">自動對沖 24H 即時盯盤</p>
-                    </div>
+            <a href="https://www.joption.com.tw/" target="_blank" class="flex items-center gap-4 p-4 bg-amber-500 text-slate-900 rounded-2xl hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-amber-500/10">
+                <div class="p-2 bg-black/10 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
-                <span class="bg-amber-500 text-slate-900 text-[10px] font-black px-4 py-1.5 rounded-lg relative z-10 shadow-lg">了解詳情</span>
+                <div>
+                    <div class="text-[10px] font-bold text-slate-700 uppercase">Pro Tools</div>
+                    <div class="text-sm font-black">雙賣平衡下單機</div>
+                </div>
             </a>
         </div>
     </main>
 
-    <!-- Footer: 統計數據 -->
-    <footer class="p-3 bg-white border-t border-slate-100 flex justify-center items-center gap-6">
-        <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-            👥 在線：<span id="online-users" class="text-slate-700 font-mono">1</span>
-        </span>
-        <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-            👁️ 瀏覽：<span id="total-views" class="text-slate-700 font-mono">...</span>
-        </span>
+    <!-- 頁尾 -->
+    <footer class="mt-8 mb-6 px-4 py-6 md:py-8 border-t border-slate-200/60">
+        <div class="flex flex-wrap justify-center gap-4 md:gap-8 mb-6">
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Views</span>
+                <span id="total-views" class="text-sm font-black text-slate-700 font-mono">0</span>
+            </div>
+            <div class="w-px h-4 bg-slate-200 self-center hidden md:block"></div>
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Today</span>
+                <span id="today-views" class="text-sm font-black text-amber-600 font-mono">0</span>
+            </div>
+            <div class="w-px h-4 bg-slate-200 self-center hidden md:block"></div>
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Online</span>
+                <span id="online-users" class="text-sm font-black text-slate-700 font-mono">1</span>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <p class="text-[10px] font-bold text-slate-300 tracking-[0.3em] uppercase">© JOPTION ACADEMY • PRECISION TRADING</p>
+        </div>
     </footer>
 </div>
 
 <script>
     const APP_STATE = {
-        ratio: 12.42,
-        refPrice: 33969,
-        futai: 0,
-        tx: 0,
-        nextUpdate: 15,
-        fetchInProgress: false,
-        proxies: ["https://api.allorigins.win/get?url=", "https://api.codetabs.com/v1/proxy?quest="],
+        baseTx: 47956,
+        baseFt: 4229.25,
+        baseLabel: "9/25 04:59 封關",
+        currentFt: 0,
+        refreshSec: 5,
+        nextUpdate: 5,
+        isFetching: false,
+        proxies: [
+            "https://corsproxy.io/?url=",
+            "https://api.allorigins.win/get?url=",
+            "https://api.codetabs.com/v1/proxy?quest="
+        ],
         proxyIdx: 0
     };
 
-    // Firebase 統計核心
+    function toggleSettings() {
+        const panel = document.getElementById('settings-panel');
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) {
+            document.getElementById('input-base-tx').value = APP_STATE.baseTx;
+            document.getElementById('input-base-ft').value = APP_STATE.baseFt;
+            const dateMatch = APP_STATE.baseLabel.match(/(\d+)\/(\d+)/);
+            if (dateMatch) {
+                const year = new Date().getFullYear();
+                document.getElementById('input-base-date').value = `${year}-${dateMatch[1].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`;
+            }
+        }
+    }
+
+    async function saveSettings() {
+        const btn = document.getElementById('save-btn');
+        const flash = (text, ms = 2000) => {
+            btn.innerText = text;
+            setTimeout(() => { btn.innerText = '儲存基準'; btn.disabled = false; }, ms);
+        };
+        if (!window.firebaseTools) return flash('連線尚未就緒，請稍候再試');
+        const { db, appId, doc, setDoc, auth } = window.firebaseTools;
+
+        const newTx = parseFloat(document.getElementById('input-base-tx').value);
+        const newFt = parseFloat(document.getElementById('input-base-ft').value);
+        const dateVal = document.getElementById('input-base-date').value;
+
+        if (isNaN(newTx) || isNaN(newFt) || !dateVal) return flash('請填寫完整數值與日期');
+
+        btn.disabled = true;
+        btn.innerText = '儲存中…';
+        // 匿名登入可能還沒完成，最多等 5 秒
+        for (let i = 0; i < 50 && !auth.currentUser; i++) await new Promise(r => setTimeout(r, 100));
+        if (!auth.currentUser) return flash('連線尚未就緒，請稍候再試');
+
+        const dateParts = dateVal.split('-');
+        const formattedDate = `${parseInt(dateParts[1])}/${parseInt(dateParts[2])}`;
+        const newLabel = `${formattedDate} 04:59 封關`;
+
+        try {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'simulation'), {
+                baseTx: newTx,
+                baseFt: newFt,
+                baseLabel: newLabel,
+                updatedAt: Date.now()
+            });
+            btn.innerText = '✓ 已儲存，所有人同步更新';
+            setTimeout(() => { btn.innerText = '儲存基準'; btn.disabled = false; toggleSettings(); }, 1200);
+        } catch (e) {
+            console.error("儲存失敗:", e);
+            flash('儲存失敗，請再試一次');
+        }
+    }
+
     async function initStats() {
         if (!window.firebaseTools) return;
-        const { db, auth, appId, increment, doc, setDoc, collection, onSnapshot, signInAnonymously, signInWithCustomToken } = window.firebaseTools;
-        try {
+        const { db, auth, appId, increment, doc, setDoc, collection, onSnapshot, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = window.firebaseTools;
+        
+        // 強制驗證流程
+        const startAuth = async () => {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
                 await signInAnonymously(auth);
             }
-            const user = auth.currentUser;
-            if (user) {
-                const statsDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'global');
-                await setDoc(statsDoc, { totalViews: increment(1) }, { merge: true });
-                onSnapshot(statsDoc, (snap) => {
-                    if (snap.exists()) document.getElementById('total-views').innerText = snap.data().totalViews?.toLocaleString() || '1';
+        };
+
+        try {
+            await startAuth();
+
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) return;
+
+                // 只有在登入後才開啟監聽
+                const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'simulation');
+                onSnapshot(settingsRef, (snap) => {
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        APP_STATE.baseTx = data.baseTx;
+                        APP_STATE.baseFt = data.baseFt;
+                        APP_STATE.baseLabel = data.baseLabel;
+                        if (APP_STATE.currentFt > 0) calculateResults(APP_STATE.currentFt);
+                    }
+                }, (err) => console.error("監聽設定失敗 (路徑或權限):", err));
+
+                const now = new Date();
+                const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                
+                const globalStatsRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'global');
+                const dailyStatsRef = doc(db, 'artifacts', appId, 'public', 'data', 'dailyStats', dateKey);
+                const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'presence', user.uid);
+
+                try {
+                    await setDoc(globalStatsRef, { totalViews: increment(1) }, { merge: true });
+                    await setDoc(dailyStatsRef, { count: increment(1) }, { merge: true });
+                } catch (e) {}
+
+                onSnapshot(globalStatsRef, (snap) => {
+                    if (snap.exists()) document.getElementById('total-views').innerText = snap.data().totalViews?.toLocaleString() || '0';
                 }, (err) => {});
 
-                const presenceDoc = doc(db, 'artifacts', appId, 'public', 'data', 'presence', user.uid);
-                const updatePresence = () => setDoc(presenceDoc, { lastActive: Date.now() }, { merge: true });
-                updatePresence(); setInterval(updatePresence, 60000); 
-                const presenceCol = collection(db, 'artifacts', appId, 'public', 'data', 'presence');
-                onSnapshot(presenceCol, (snap) => {
-                    const now = Date.now();
-                    const activeCount = snap.docs.filter(d => (now - (d.data().lastActive || 0)) < 300000).length;
+                onSnapshot(dailyStatsRef, (snap) => {
+                    if (snap.exists()) document.getElementById('today-views').innerText = snap.data().count?.toLocaleString() || '0';
+                }, (err) => {});
+
+                const updateActive = () => setDoc(presenceRef, { lastActive: Date.now() }, { merge: true });
+                updateActive();
+                setInterval(updateActive, 60000);
+
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'presence'), (snap) => {
+                    const activeNow = Date.now();
+                    const activeCount = snap.docs.filter(d => (activeNow - (d.data().lastActive || 0)) < 300000).length;
                     document.getElementById('online-users').innerText = activeCount || '1';
                 }, (err) => {});
-            }
-        } catch (e) { console.error("Stats Auth Failure"); }
+            });
+        } catch (e) {
+            console.error("驗證初始化失敗:", e);
+        }
     }
 
     async function fetchWithRetry(url, retries = 5) {
-        const proxyBase = APP_STATE.proxies[APP_STATE.proxyIdx % APP_STATE.proxies.length];
-        const targetUrl = proxyBase + encodeURIComponent(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+        // Google Sheets CSV 匯出支援 CORS，先直接抓取，失敗才走代理
         try {
-            const res = await fetch(targetUrl);
-            if (!res.ok) throw new Error("HTTP_ERROR");
-            let textContent = '';
-            if (proxyBase.includes("allorigins")) {
-                const data = await res.json();
-                textContent = data.contents;
-            } else {
-                textContent = await res.text();
-            }
-            if (!textContent || textContent.includes("<html")) throw new Error("PERMISSION_DENIED");
-            return textContent;
-        } catch (error) {
+            const res = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+            if (res.ok) return await res.text();
+        } catch (e) {}
+        return fetchViaProxy(url, retries);
+    }
+
+    async function fetchViaProxy(url, retries) {
+        const proxyBase = APP_STATE.proxies[APP_STATE.proxyIdx % APP_STATE.proxies.length];
+        const cacheBuster = (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+        const finalUrl = proxyBase + encodeURIComponent(url + cacheBuster);
+        try {
+            const res = await fetch(finalUrl);
+            if (!res.ok) throw new Error();
+            let content = proxyBase.includes("allorigins") ? (await res.json()).contents : await res.text();
+            return content;
+        } catch (err) {
             if (retries > 0) {
                 APP_STATE.proxyIdx++;
-                return fetchWithRetry(url, retries - 1);
+                await new Promise(r => setTimeout(r, 600));
+                return fetchViaProxy(url, retries - 1);
             }
-            throw error;
+            throw err;
         }
     }
 
-    function updateComparison(currentTX) {
-        const diffContainer = document.getElementById('diff-container');
-        const diffPoints = document.getElementById('diff-points');
-        const diffPercent = document.getElementById('diff-percent');
-        const diffArrow = document.getElementById('diff-arrow');
+    function calculateResults(foundFt) {
+        APP_STATE.currentFt = foundFt;
+        const currentRatio = APP_STATE.baseTx / APP_STATE.baseFt;
+        const txPrice = Math.round(foundFt * currentRatio);
+        const diff = txPrice - APP_STATE.baseTx;
+        const percent = ((foundFt / APP_STATE.baseFt) - 1) * 100;
+
+        document.getElementById('futai-val').innerHTML = foundFt.toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('tx-val').innerText = txPrice.toLocaleString();
+        
+        // 更新 UI 上的基準值顯示
+        const shortLabel = APP_STATE.baseLabel.split(' ')[0];
+        document.getElementById('base-label-short').innerText = shortLabel;
+        document.getElementById('base-tx-display').innerText = Math.round(APP_STATE.baseTx).toLocaleString();
+        document.getElementById('base-ft-display').innerText = APP_STATE.baseFt.toLocaleString();
+
+        const container = document.getElementById('diff-container');
         const display = document.getElementById('diff-display');
-        const diff = currentTX - APP_STATE.refPrice;
-        const percent = (diff / APP_STATE.refPrice) * 100;
-        
-        diffContainer.classList.remove('hidden');
-        diffPoints.innerText = (diff > 0 ? "+" : "") + diff.toLocaleString();
-        diffPercent.innerText = `(${percent.toFixed(2)}%)`;
-        
-        if (diff > 0) {
-            display.className = "flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl up-trend";
-            diffArrow.innerHTML = "▲";
-        } else if (diff < 0) {
-            display.className = "flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl down-trend";
-            diffArrow.innerHTML = "▼";
-        } else {
-            display.className = "flex items-center gap-1.5 font-mono font-black text-xl md:text-3xl text-slate-300";
-            diffArrow.innerHTML = "";
+        const arrow = document.getElementById('diff-arrow');
+        const points = document.getElementById('diff-points');
+        const pctEl = document.getElementById('diff-percent');
+
+        container.classList.remove('hidden');
+        points.innerText = (diff > 0 ? "+" : "") + diff.toLocaleString();
+        pctEl.innerText = `(${percent.toFixed(2)}%)`;
+
+        if (diff > 0) { display.className = "flex items-center gap-1 font-black text-xl md:text-2xl font-mono up-trend"; arrow.innerHTML = "▲"; }
+        else if (diff < 0) { display.className = "flex items-center gap-1 font-black text-xl md:text-2xl font-mono down-trend"; arrow.innerHTML = "▼"; }
+        else { display.className = "flex items-center gap-1 font-black text-xl md:text-2xl font-mono text-slate-300"; arrow.innerHTML = ""; }
+    }
+
+    function parseCSV(text) {
+        const rows = [];
+        const lines = text.split(/\r?\n/);
+        for (let line of lines) {
+            if (!line.trim()) continue;
+            const cells = [];
+            let current = '', inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { cells.push(current.trim()); current = ''; }
+                else current += char;
+            }
+            cells.push(current.trim()); rows.push(cells);
         }
+        return rows;
+    }
+
+    // 來源：Google Sheet（由報價軟體即時寫入，延遲僅數秒）
+    async function fetchFromSheet() {
+        const GS_URL = "https://docs.google.com/spreadsheets/d/1Ysw95KCFw-sHDUntrzsg7zCWPsiAyIIHJ1Yg69pKuKk/export?format=csv&gid=884663985";
+        const rows = parseCSV(await fetchWithRetry(GS_URL));
+
+        if (rows.length >= 3 && rows[2] && rows[2][5]) {
+            const val = parseFloat(rows[2][5].replace(/[^\d.]/g, ''));
+            if (!isNaN(val) && val > 1000) return val;
+        }
+        for (let r = 0; r < rows.length; r++) {
+            for (let c = 0; c < rows[r].length; c++) {
+                if (rows[r][c] && /富(時)?台/.test(rows[r][c]) && rows[r][c + 3]) {
+                    const val = parseFloat(rows[r][c + 3].replace(/[^\d.]/g, ''));
+                    if (!isNaN(val) && val > 1000) return val;
+                }
+            }
+        }
+        return null;
     }
 
     async function syncData() {
-        if (APP_STATE.fetchInProgress) return;
-        const GS_URL = "https://docs.google.com/spreadsheets/d/1Ysw95KCFw-sHDUntrzsg7zCWPsiAyIIHJ1Yg69pKuKk/export?format=csv&gid=1439471545";
-        const light = document.getElementById('sync-dot');
-        const countdownEl = document.getElementById('countdown');
-        const timeEl = document.getElementById('last-update-time');
-        const updatePing = document.getElementById('update-ping');
+        if (APP_STATE.isFetching) return;
+        const dot = document.getElementById('sync-dot');
+        const statusInd = document.getElementById('status-indicator');
 
-        APP_STATE.fetchInProgress = true;
-        if (light) light.className = "w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse";
-        if (updatePing) updatePing.classList.remove('hidden');
+        APP_STATE.isFetching = true;
+        dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
+        statusInd.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
 
         try {
-            const rawText = await fetchWithRetry(GS_URL);
-            const rows = rawText.split(/\r?\n/).map(row => {
-                const cols = []; let curr = '', inQ = false;
-                for (let i = 0; i < row.length; i++) {
-                    const char = row[i];
-                    if (char === '"') inQ = !inQ;
-                    else if (char === ',' && !inQ) { cols.push(curr.trim()); curr = ''; }
-                    else curr += char;
-                }
-                cols.push(curr.trim()); return cols;
-            });
+            const foundPrice = await fetchFromSheet();
 
-            let targetValue = null;
-            if (rows.length >= 10 && rows[9].length >= 4) {
-                const rawVal = rows[9][3].replace(/[",\s]/g, '').trim();
-                const num = parseFloat(rawVal); if (!isNaN(num)) targetValue = num;
-            }
-
-            if (targetValue === null) {
-                const matches = rawText.match(/([0-9,]+(\.[0-9]+)?)/g);
-                if (matches) {
-                    for (let m of matches) {
-                        const clean = parseFloat(m.replace(/,/g, ''));
-                        if (clean > 500 && clean < 20000) { targetValue = clean; break; }
-                    }
-                }
-            }
-
-            if (targetValue) {
-                APP_STATE.futai = targetValue;
-                APP_STATE.tx = Math.round(targetValue * APP_STATE.ratio);
-                document.getElementById('futai-val').innerText = targetValue.toLocaleString();
-                document.getElementById('tx-val').innerText = APP_STATE.tx.toLocaleString();
-                const now = new Date();
-                timeEl.innerText = now.toLocaleTimeString('zh-TW', { hour12: false });
-                updateComparison(APP_STATE.tx);
-                if (light) light.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
-            }
-        } catch (error) {
-            if (light) light.className = "w-1.5 h-1.5 rounded-full bg-rose-500";
+            if (foundPrice) {
+                calculateResults(foundPrice);
+                document.getElementById('last-update-time').innerText = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+                dot.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-sm";
+                statusInd.className = "w-2 h-2 rounded-full bg-emerald-500";
+            } else { throw new Error(); }
+        } catch (err) {
+            dot.className = "w-2 h-2 rounded-full bg-rose-500 shadow-sm";
+            statusInd.className = "w-2 h-2 rounded-full bg-rose-500";
         } finally {
-            APP_STATE.fetchInProgress = false;
-            APP_STATE.nextUpdate = 15;
-            if (countdownEl) countdownEl.innerText = "15";
-            if (updatePing) updatePing.classList.add('hidden');
+            APP_STATE.isFetching = false;
+            APP_STATE.nextUpdate = APP_STATE.refreshSec;
+            document.getElementById('countdown').innerText = APP_STATE.nextUpdate;
         }
     }
 
     (function start() {
         syncData();
-        setTimeout(initStats, 1500);
+        setTimeout(initStats, 1000);
         setInterval(() => {
-            if (!APP_STATE.fetchInProgress) {
-                const countdownEl = document.getElementById('countdown');
+            if (!APP_STATE.isFetching) {
                 APP_STATE.nextUpdate--;
                 if (APP_STATE.nextUpdate <= 0) syncData();
-                else if (countdownEl) countdownEl.innerText = APP_STATE.nextUpdate;
+                else document.getElementById('countdown').innerText = APP_STATE.nextUpdate;
             }
         }, 1000);
     })();
