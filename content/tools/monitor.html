@@ -16,7 +16,7 @@
   --call: #d9321f; --put: #0a7f4d;
   --gain: #3a35c4; --loss: #d9321f;   /* 賺賠的顏色只改這兩個 */
   --up: #d9321f; --down: #0a7f4d; --up-bg: #fde8e4; --down-bg: #e2f5ec;   /* 行情照台股習慣：漲紅跌綠 */
-  --past: #b4afc9; --fri-past: #f3cf7c;
+  --past: #b4afc9; --fri-past: #f3cf7c; --live-next: #e0457b;
   --edge: 2.5px solid var(--ink); --pop: 4px 4px 0 var(--ink);
   --display: "Lilita One", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   --text: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
@@ -736,9 +736,13 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   const SERIES_AVG = '優化平均';
   function seriesList(h) {
     const past = [], live = [];
+    // 同時有兩期週三（或週五）在跑：最近一期用原本的顏色，下一期換 --live-next，才分得出來
+    const first = {};
+    h.contracts.filter(c => c.live).forEach(c => { if (!first[c.settle] || c.date < first[c.settle]) first[c.settle] = c.date; });
     h.contracts.forEach(c => {
       const friday = c.settle === '五';
-      if (c.live) live.push({ name: c.name, settle: c.settle, date: c.date, days: c.days, data: c.data, color: friday ? 'var(--coin-deep)' : 'var(--indigo)', w: 3.2, main: true, gap: 4, live: true, last: c.last });
+      const color = c.date !== first[c.settle] ? 'var(--live-next)' : friday ? 'var(--coin-deep)' : 'var(--indigo)';
+      if (c.live) live.push({ name: c.name, settle: c.settle, date: c.date, days: c.days, data: c.data, color: color, w: 3.2, main: true, gap: 4, live: true, last: c.last });
       else past.push({ name: c.name, settle: c.settle, date: c.date, days: c.days, data: c.data, color: friday ? 'var(--fri-past)' : 'var(--past)', w: 1.3 });
     });
     return past.reverse().concat([{ name: SERIES_AVG, days: h.avg.days, data: h.avg.data, color: 'var(--ink)', w: 2.2, main: true, isAvg: true }], live);
@@ -824,7 +828,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     seriesList(h).filter(s => !s.main).forEach(s => { out[s.name] = seriesVix(s, p); });
     return out;
   }
-  const NEAR_COLORS = ['#e0457b', '#12a0a0', '#8a4fd8', '#f07c2a', '#2f9e44', '#9c6b30'];
+  const NEAR_COLORS = ['#1c7ed6', '#12a0a0', '#8a4fd8', '#f07c2a', '#2f9e44', '#9c6b30'];
   function nearColors(h) {
     if (!state.vixNear) return {};
     const vixOf = pastVix(h), cur = currentVix(), out = {};
