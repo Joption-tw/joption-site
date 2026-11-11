@@ -1,6 +1,6 @@
 ---
 title: Telegram 通知設定
-order: 406
+order: 460
 summary: 讓下單機把成交、庫存、權益總值傳到你的 Telegram：建立頻道、貼上頻道網址、勾選要收的通知。
 ---
 

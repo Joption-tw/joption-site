@@ -1,6 +1,6 @@
 ---
 title: PUT點數控管
-order: 240
+order: 270
 ---
 
 <a id="h.xsv7gd8fn4em"></a>
