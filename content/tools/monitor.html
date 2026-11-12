@@ -264,6 +264,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gate button[type="submit"]:active { transform: translate(3px, 3px); box-shadow: none; }
 .gate button[disabled] { opacity: .6; cursor: default; }
 .gate .err { margin: 0; color: var(--loss); font-size: 14px; font-weight: 700; }
+.gate p.gate-lead { color: var(--ink); }
 .gate label small { margin-left: 4px; color: var(--muted); font-weight: 400; font-size: 12px; }
 /* 沒開通的訪客：開通框下面只看示範帳號、時間價值、VIX 和示範帳號最近 10 盤 */
 .visitor-note { display: none; }
@@ -331,7 +332,8 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
   <div class="gate">
     <h1>同學開通才看得到</h1>
     <form id="gate-email">
-      <p>輸入你開通的 Email 就能看全部同學。還沒開通的話，下面可以先看示範帳號、時間價值和 VIX。</p>
+      <p class="gate-lead">這裡是使用 Joption 雙賣平衡下單機的同學交流績效的地方：開通後，你下單機的績效會分享在這裡，同時也能看到其他同學的即時績效。</p>
+      <p>已經開通的，輸入你的 Email 就能看。還沒開通的話，下面可以先看示範帳號、時間價值和 VIX。</p>
       <label for="gate-email-input">Email</label>
       <input id="gate-email-input" type="email" autocomplete="email" required placeholder="you@example.com">
       <label for="gate-ref-input">分享人暱稱<small>（第一次申請要填：是誰把這個網頁分享給你）</small></label>
