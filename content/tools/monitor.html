@@ -38,7 +38,28 @@ button, input, select { font: inherit; color: inherit; }
 .brand img { width: 38px; height: 38px; object-fit: contain; }
 .status { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
 .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 99px; white-space: nowrap; }
-.presence { cursor: help; }
+.presence { cursor: pointer; }
+.pres-dlg { width: min(720px, calc(100vw - 32px)); max-height: min(80vh, 760px); padding: 0; border: 2.5px solid var(--ink); border-radius: 16px; box-shadow: 5px 5px 0 var(--ink); background: var(--paper); color: var(--ink); overflow: auto; }
+.pres-dlg::backdrop { background: rgba(20, 16, 40, .35); }
+.pres-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--coin); border-bottom: 2px solid var(--ink); }
+.pres-head h3 { margin: 0; font-size: 18px; }
+#pres-body { padding: 12px 16px 16px; }
+.pres-now { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.pres-now span { padding: 2px 10px; border: 2px solid var(--ink); border-radius: 99px; background: var(--white); font-size: 13px; }
+.pres-now span small { margin-left: 4px; color: var(--muted); }
+.pres-now span i, .pres-tbl td i.on { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: #2fb36d; vertical-align: 1px; }
+.pres-tbl { background: var(--white); border: 2px solid var(--ink); border-radius: 12px; }
+.pres-tbl th, .pres-tbl td { padding: 6px 10px; font-size: 13px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.pres-tbl th:first-child, .pres-tbl td:first-child { text-align: left; }
+.pres-tbl th { background: var(--kraft); }
+.pres-tbl th button.sort { all: unset; cursor: pointer; }
+.pres-tbl th[aria-sort] button.sort { color: var(--indigo); }
+.pres-tbl tr.row { cursor: pointer; }
+.pres-tbl tr.row:hover td { background: var(--sky); }
+.pres-tbl tr.detail td { text-align: left; background: var(--paper); white-space: normal; }
+.pres-tbl tr.detail ol { margin: 0; padding-left: 20px; columns: 2 240px; font-variant-numeric: tabular-nums; }
+.pres-tbl td .mute, .pres-note { color: var(--muted); }
+.pres-note { margin: 10px 0 0; font-size: 12px; line-height: 1.6; }
 @media (max-width: 640px) { .pres-more { display: none; } }
 .pill b { font-family: var(--display); font-weight: 400; font-size: 15px; }
 /* 電腦版往下捲、行情帶看不到時，頂列放一排精簡行情 */
@@ -286,11 +307,15 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <div class="ticker" id="ticker" aria-label="目前行情"></div>
   <div class="status">
     <span class="pill"><i class="dot" id="live-dot"></i><span id="live-text">讀取中</span></span>
-    <span class="pill presence" id="presence" hidden></span>
+    <button type="button" class="pill pill-btn presence" id="presence" hidden aria-haspopup="dialog"></button>
     <button class="pill pill-btn" id="logout" hidden>登出</button>
     <button class="pill pill-btn" id="preview-gate" hidden>看開通畫面</button>
   </div>
 </div></header>
+<dialog class="pres-dlg" id="pres-dlg" aria-labelledby="pres-title">
+  <div class="pres-head"><h3 id="pres-title">誰在線上</h3><button type="button" class="chip" id="pres-close" aria-label="關閉">✕</button></div>
+  <div id="pres-body"></div>
+</dialog>
 
 <div class="wrap" id="gate" hidden>
   <div class="gate">
@@ -1537,13 +1562,54 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     return pad2(+t[1]) + '/' + pad2(+t[2]) + '～' + pad2(end.getMonth() + 1) + '/' + pad2(end.getDate());
   }
 
-  // 在線人數：只有有橡皮擦權限的人拿得到，滑鼠移上去看是誰
+  // 在線人數：只有歐大拿得到（伺服器只送給程式擁有者），點開看誰在線、每個人上線幾次、什麼時候、累計多久
   function renderPresence(p) {
     const el = $('presence');
+    state.presence = p || null;
     el.hidden = !p;
-    if (!p) return;
+    if (!p) { if ($('pres-dlg').open) $('pres-dlg').close(); return; }
     el.innerHTML = '在線 <b>' + p.online + '</b> 人<span class="pres-more">，今天 ' + p.today + '</span>';
-    el.title = '現在在看（3 分鐘內）：' + (p.names.length ? p.names.join('、') : '沒有') + '\n今天看過：' + p.todayNames.join('、');
+    el.title = '點一下看誰在線上、每個人的上線紀錄';
+    if ($('pres-dlg').open) renderPresDlg();
+  }
+  const presSort = { col: 'last', dir: -1 };
+  const presOpen = {};
+  const dur = min => min >= 60 ? Math.floor(min / 60) + ' 小時 ' + (min % 60) + ' 分' : min + ' 分';
+  // 「2026/11/12 08:30」→「11/12（四）08:30」
+  const presTime = s => {
+    const t = String(s || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}:\d{2})/);
+    if (!t) return s || '';
+    const d = new Date(+t[1], t[2] - 1, +t[3]);
+    return (+t[2]) + '/' + (+t[3]) + '（' + WEEKDAY[d.getDay()] + '）' + t[4];
+  };
+  function renderPresDlg() {
+    const p = state.presence;
+    if (!p) return;
+    const people = (p.people || []).slice();
+    const label = q => q.name || q.email;
+    const val = q => presSort.col === 'name' ? label(q) : presSort.col === 'count' ? q.count : presSort.col === 'total' ? q.total : (q.on ? '9' : '') + (q.last || '');
+    people.sort((a, b) => {
+      const va = val(a), vb = val(b);
+      const c = typeof va === 'string' ? va.localeCompare(vb, 'zh-Hant') : va - vb;
+      return c ? presSort.dir * c : (b.last || '').localeCompare(a.last || '');
+    });
+    const on = people.filter(q => q.on);
+    const th = (id, text) => '<th scope="col"' + (presSort.col === id ? ' aria-sort="' + (presSort.dir < 0 ? 'descending' : 'ascending') + '"' : '') + '><button type="button" class="sort" data-ps="' + id + '">' + text + (presSort.col === id ? (presSort.dir < 0 ? ' ▼' : ' ▲') : '') + '</button></th>';
+    let html = '<b>現在在線 ' + on.length + ' 人</b><div class="pres-now">' + (on.length ? on.map(q => {
+      const mins = q.recent[0] ? q.recent[0][2] : 0;
+      return '<span title="' + esc(q.email) + '"><i></i>' + esc(label(q)) + '<small>' + presTime(q.since).replace(/^.*）/, '') + ' 上線，' + dur(mins) + '</small></span>';
+    }).join('') : '<span class="mute">沒有人</span>') + '</div>';
+    html += '<div class="scroll"><table class="pres-tbl"><thead><tr>' + th('name', '暱稱') + th('last', '最後上線') + th('count', '上線次數') + th('total', '累計時間') + '</tr></thead><tbody>';
+    people.forEach(q => {
+      const id = q.email;
+      html += '<tr class="row" data-pe="' + esc(id) + '" title="' + esc(q.email) + '，點一下看每次的時間"><td>' + (q.on ? '<i class="on"></i>' : '') + esc(label(q)) + (q.approved ? '' : ' <small class="mute">（已停用）</small>') + '</td>' +
+        '<td>' + (q.on ? '在線中' : q.last ? presTime(q.last) : '<span class="mute">還沒上線過</span>') + '</td><td>' + (q.count || '–') + '</td><td>' + (q.total ? dur(q.total) : '–') + '</td></tr>';
+      if (presOpen[id]) {
+        html += '<tr class="detail"><td colspan="4">' + (q.recent.length ? '最近 ' + q.recent.length + ' 次<ol>' + q.recent.map(r => '<li>' + presTime(r[0]) + '～' + (r[1] ? presTime(r[1]).replace(/^.*）/, '') : '現在') + '，' + dur(r[2]) + '</li>').join('') + '</ol>' : '<span class="mute">還沒有紀錄</span>') + '</td></tr>';
+      }
+    });
+    html += '</tbody></table></div><p class="pres-note">網頁開在畫面上才算在線（切到別的分頁或手機鎖螢幕就不算），超過 5 分鐘沒動靜算下線一次。次數和累計從開始記錄那天算起，開通名單的 H～J 欄也有。這個視窗只有你看得到。</p>';
+    $('pres-body').innerHTML = html;
   }
 
   function renderStatus() {
@@ -1879,6 +1945,16 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const id = b.dataset.sort, ms = state.matSort || { col: 'total', dir: -1 };
     state.matSort = { col: id, dir: ms.col === id ? -ms.dir : id === 'name' ? 1 : -1 };  // 第一次點：數字由大到小，暱稱照筆畫
     renderMatrix(state.data, state.mode === 'now');
+  });
+  $('presence').addEventListener('click', () => { if (!state.presence) return; renderPresDlg(); $('pres-dlg').showModal(); });
+  $('pres-close').addEventListener('click', () => $('pres-dlg').close());
+  $('pres-dlg').addEventListener('click', e => {
+    if (e.target === e.currentTarget) { e.currentTarget.close(); return; }  // 點外面關掉
+    const s = e.target.closest('[data-ps]'), r = e.target.closest('[data-pe]');
+    if (s) { const c = s.dataset.ps; presSort.dir = presSort.col === c ? -presSort.dir : c === 'name' ? 1 : -1; presSort.col = c; }
+    else if (r) presOpen[r.dataset.pe] = !presOpen[r.dataset.pe];
+    else return;
+    renderPresDlg();
   });
   $('legend').addEventListener('click', e => {
     const b = e.target.closest('.lg');
