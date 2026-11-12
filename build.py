@@ -289,6 +289,35 @@ ICONS = {
     "clock": '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3L2 6M19 3l3 3"/>',
 }
 
+# 首頁大圖上的動畫（座標跟 1120×1120 的圖一樣）：時鐘指針在轉、金幣從錢堆往上冒、閃光
+CLOCK = (537.5, 327.5)
+
+
+def _art_fx():
+    coin = ('<g class="face"><circle r="34" fill="#f7c948" stroke="#6b4300" stroke-width="4"/>'
+            '<circle r="24" fill="none" stroke="#c98a12" stroke-width="3"/>'
+            '<text y="12" text-anchor="middle" font-size="36" font-weight="900" fill="#7a4d00">$</text></g>')
+    spark = '<path d="M0-30Q5-5 30 0Q5 5 0 30Q-5 5-30 0Q-5-5 0-30Z"/>'
+    def at(cls, x, y, d, inner):
+        return f'<g class="{cls}" style="--x:{x}px;--y:{y}px;animation-delay:{d}s">{inner}</g>'
+    coins = "".join(at("fx-coin", x, y, d, coin) for x, y, d in
+                    ((185, 360, 0), (905, 350, .8), (470, 800, 1.6), (330, 505, 2.4), (690, 860, 3.2)))
+    plus = "".join(at("fx-plus", x, y, d, '<text text-anchor="middle">+$</text>') for x, y, d in
+                   ((250, 330, 1.2), (950, 320, 2.8), (560, 770, 2)))
+    sparks = "".join(at("fx-spark", x, y, d, spark) for x, y, d in
+                     ((160, 420, 0), (520, 560, .7), (845, 590, 1.4), (470, 805, 2.1), (935, 405, 2.8), (220, 975, 3.5)))
+    cx, cy = CLOCK
+    hand = lambda cls, d: f'<g class="fx-hand {cls}"><path d="{d}"/></g>'
+    hands = (hand("hour", f"M{cx-6} {cy+12}L{cx-3.5} {cy-30}L{cx-12} {cy-38}L{cx} {cy-58}L{cx+12} {cy-38}L{cx+3.5} {cy-30}L{cx+6} {cy+12}Z")
+             + hand("minute", f"M{cx-4.5} {cy+14}L{cx-2.5} {cy-62}L{cx-9} {cy-70}L{cx} {cy-86}L{cx+9} {cy-70}L{cx+2.5} {cy-62}L{cx+4.5} {cy+14}Z")
+             + f'<g class="fx-hand second"><path d="M{cx} {cy+18}V{cy-80}"/><circle cx="{cx}" cy="{cy+18}" r="4"/></g>'
+             + f'<circle class="fx-hub" cx="{cx}" cy="{cy}" r="11"/><circle cx="{cx}" cy="{cy}" r="4" fill="#efe9d8"/>')
+    return (f'<svg class="hero-fx" viewBox="0 0 1120 1120" aria-hidden="true" style="--cx:{cx}px;--cy:{cy}px">'
+            f'{sparks}{hands}{coins}{plus}</svg>')
+
+
+ART_FX = _art_fx()
+
 # 首頁底邊的雙賣損益圖：中間平台賺時間價值，兩邊是 Put、Call 的風險
 PAYOFF = ('<svg class="payoff" viewBox="0 0 1200 92" preserveAspectRatio="none" aria-hidden="true">'
           '<path class="payoff-fill" d="M0 92L0 88L400 14H800L1200 88V92Z"/>'
@@ -513,7 +542,7 @@ def build(base=None, preview=False):
                     f'<h1><b>{esc(site["hero_brand"])}</b>{esc(site["hero_title"])}</h1>'
                     f'<p class="hero-slogan">{esc(site["hero_slogan"])}</p></div>'
                     f'<div class="hero-art"><img src="{art[0][0]}" srcset="{srcset}" sizes="(max-width: 640px) 72vw, 460px" '
-                    f'width="1120" height="1120" alt="" fetchpriority="high"></div></div>{PAYOFF}</section>')
+                    f'width="1120" height="1120" alt="" fetchpriority="high">{ART_FX}</div></div>{PAYOFF}</section>')
             body_class, full_title = "home", site["name"]
         else:
             main = (f'{crumbs(p, nodes)}<article class="prose"><h1>{esc(p["title"])}</h1>{SHARE}{content}</article>'
@@ -524,7 +553,7 @@ def build(base=None, preview=False):
                                 .replace("{{title}}", esc(full_title))
                                 .replace("{{description}}", esc(p["summary"] or site["description"]))
                                 .replace("{{canonical}}", esc(site_url + p["url"]))
-                                .replace("{{og_image}}", esc(site_url + site["hero_art"]))
+                                .replace("{{og_image}}", esc(site_url + site.get("og_image", site["hero_art"])))
                                 .replace("{{site_name}}", esc(site["name"]))
                                 .replace("{{logo}}", esc(site["logo"]))
                                 .replace("{{ga_id}}", esc(site.get("ga_id", "")))

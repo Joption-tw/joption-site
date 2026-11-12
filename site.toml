@@ -9,7 +9,10 @@ ga_id = "G-QLVS2TRSRG"
 counter_url = ""
 
 logo = "/images/site/logo.png"
-hero_art = "/images/site/joption-art.png"
+# 首頁大圖：時鐘指針拿掉的版本，指針、金幣動畫在 build.py 的 ART_FX
+hero_art = "/images/site/joption-art-live.png"
+# 分享到 LINE、FB 的預覽圖用原圖（有指針）
+og_image = "/images/site/joption-art.png"
 hero_kicker = "選擇權量化交易程式"
 hero_brand = "JOPTION"
 hero_title = "雙賣平衡下單機"

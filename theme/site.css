@@ -244,6 +244,47 @@ iframe.embed { height: 1157px; }
   background: var(--coin); border: 3px solid var(--ink); box-shadow: var(--pop-big);
 }
 .hero-art img { position: relative; display: block; width: 100%; height: auto; }
+/* 大圖動畫：時鐘一直走、金幣往上冒、+$ 跳出來、金幣閃光 */
+.hero-fx { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.hero-fx g { transform-box: view-box; }
+.fx-hand { transform-origin: var(--cx) var(--cy); animation: fx-spin linear infinite; fill: #191b30; }
+.fx-hand.hour { animation-duration: 180s; animation-delay: -150s; }
+.fx-hand.minute { animation-duration: 15s; animation-delay: -2.5s; }
+.fx-hand.second { animation-duration: 3s; stroke: #d62828; stroke-width: 4; stroke-linecap: round; fill: #d62828; }
+.fx-hub { fill: #191b30; }
+@keyframes fx-spin { to { transform: rotate(360deg); } }
+.fx-coin, .fx-plus, .fx-spark { opacity: 0; transform: translate(var(--x), var(--y)); }
+.fx-coin { animation: fx-rise 4s ease-out infinite; }
+.fx-coin .face { transform-box: fill-box; transform-origin: center; animation: fx-flip 1.6s ease-in-out infinite; }
+@keyframes fx-rise {
+  0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.8); }
+  12% { opacity: 1; }
+  55% { opacity: 1; }
+  80%, 100% { opacity: 0; transform: translate(var(--x), calc(var(--y) - 190px)) scale(1.2); }
+}
+@keyframes fx-flip { 50% { transform: scaleX(.3); } }
+.fx-plus { animation: fx-plus 4s ease-out infinite; }
+.fx-plus text {
+  font-family: var(--display); font-size: 72px; fill: #e53935;
+  stroke: #fff; stroke-width: 10px; stroke-linejoin: round; paint-order: stroke;
+}
+@keyframes fx-plus {
+  0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.4); }
+  10% { opacity: 1; transform: translate(var(--x), calc(var(--y) - 20px)) scale(1.15); }
+  20% { transform: translate(var(--x), calc(var(--y) - 30px)) scale(1); }
+  45% { opacity: 1; }
+  60%, 100% { opacity: 0; transform: translate(var(--x), calc(var(--y) - 110px)) scale(1); }
+}
+.fx-spark { fill: #fffbe8; animation: fx-spark 4.2s ease-in-out infinite; }
+@keyframes fx-spark {
+  0%, 70%, 100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(0) rotate(0deg); }
+  80% { opacity: 1; transform: translate(var(--x), var(--y)) scale(1.3) rotate(45deg); }
+  90% { opacity: 0; transform: translate(var(--x), var(--y)) scale(0) rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-hand { animation-play-state: paused; }
+  .fx-coin, .fx-plus, .fx-spark { display: none; }
+}
 .payoff { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: 92px; display: block; }
 .payoff-fill { fill: var(--paper); }
 .payoff-line { fill: none; stroke: var(--ink); stroke-width: 4; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
