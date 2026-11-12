@@ -579,7 +579,12 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
     const vixDiff = vix && vix.ref ? vix.last - vix.ref : null;
     const vixToday = d.vix && d.vix.today ? d.vix.today : [];
     const vixPts = vix && vix.ticks && vix.ticks.length >= 20 ? vix.ticks : vixToday.concat(vix ? [vix.last] : []);
-    const nightSelf = (() => { const pts = selfPts('夜盤'), p = pts[pts.length - 1]; return p && Date.now() - p.ms < 20 * 60000 ? p : null; })();  // 夜盤進行中才顯示
+    const nightAll = selfPts('夜盤'), nightSelf = (() => { const p = nightAll[nightAll.length - 1]; return p && Date.now() - p.ms < 20 * 60000 ? p : null; })();  // 夜盤進行中才顯示
+    // 夜盤進行中：大字和走勢換成自算的夜盤 VIX，跟今天日盤收盤比
+    const nightStart = nightSelf ? (() => { const d = new Date(nightSelf.ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getHours() < 15 ? 1 : 0), 15, 0).getTime(); })() : 0;  // 這一盤 15:00 起
+    const nightPts = nightSelf ? nightAll.filter(p => p.ms >= nightStart).map(p => p.v) : [];
+    const nightDiff = nightSelf && vix ? nightSelf.v - vix.last : null;
+    const hm = ms => pad2(new Date(ms).getHours()) + ':' + pad2(new Date(ms).getMinutes());
     const lastDigits = v => (v % 1 ? 1 : 0);
     $('market').innerHTML =
       '<div class="mk"><h3><a href="#h-tv">時間價值 ›</a>' + (first ? '<small>' + esc(first.name) + (first.date ? '，' + daysText((dateOf(first.date).getTime() + SETTLE_MIN * 60000 - mNow.ms) / 86400000) : '') + '</small>' : '') + '</h3>' +
@@ -596,15 +601,24 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
         // 期交所的漲跌是跟結算價比，不是收盤價：日盤比前一交易日的結算價，夜盤比當天日盤的結算價
         '<div class="mk-sub">' + (fut && fut.ref ? '漲跌是比' + (/-M$/.test(fut.symbol || '') ? '日盤' : '前一交易日') + '結算價 ' + int(fut.ref) : '') + '</div>' +
         '<div class="mk-sub">' + (!q ? '讀取中' : mNow.weekend ? '週末不開盤，停在週五夜盤收盤 ' + stampText(new Date(mNow.ms)) : (/-M$/.test(fut ? fut.symbol : '') ? '夜盤' : '日盤') + '，期交所報價 ' + esc(q.at) + ' 取得') + '</div></div>' +
+      (nightSelf ?
+      '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a><small>夜盤自算</small></h3>' +
+        '<div class="mk-row"><span class="mk-big">' + nightSelf.v.toFixed(2) + '</span>' + spark(nightPts.length > 1 ? nightPts : [nightSelf.v, nightSelf.v], vix ? vix.last : null, 'var(--coin-deep)') + '</div>' +
+        '<div class="mk-sub">' + (nightDiff === null ? '' : '<span class="' + (nightDiff > 0 ? 'up-t' : nightDiff < 0 ? 'down-t' : '') + '">' + change(nightDiff, 2) + '</span> 比今天日盤收盤 ' + vix.last.toFixed(2)) + '</div>' +
+        '<div class="mk-sub">期交所夜盤不公布，照期交所公式自己算，每 2 分鐘一筆</div>' +
+        '<div class="mk-sub">更新 ' + hm(nightSelf.ms) + '</div></div>'
+      :
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a></h3>' +
         '<div class="mk-row"><span class="mk-big">' + (vix ? vix.last.toFixed(2) : '–') + '</span>' + spark(vixPts, vix ? vix.ref : null, 'var(--indigo)') + '</div>' +
         '<div class="mk-sub">' + (vixDiff === null ? '' : '<span class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</span> 比前一交易日收盤 ' + vix.ref.toFixed(2)) + '</div>' +
         '<div class="mk-sub">' + (nightSelf ? '夜盤自算 <b class="self-t">' + nightSelf.v.toFixed(2) + '</b>（' + pad2(new Date(nightSelf.ms).getHours()) + ':' + pad2(new Date(nightSelf.ms).getMinutes()) + '，期交所夜盤不公布）' : mNow.weekend ? '週末不開盤，停在週五收盤' : 'VIX 只有日盤，收盤後到隔天開盤前都是當天收盤值') + '</div>' +
-        '<div class="mk-sub">' + (vixAtText(vix, q) ? '更新 ' + vixAtText(vix, q) : '') + '</div></div>';
+        '<div class="mk-sub">' + (vixAtText(vix, q) ? '更新 ' + vixAtText(vix, q) : '') + '</div></div>');
     $('ticker').innerHTML =
       '<a href="#h-tv"><small>時間價值</small><b>' + (last ? int(last.value) : '–') + '</b>' + tvChangeChip(first) + '</a>' +
       '<span><small>台指期</small><b>' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</b>' + (diff === null ? '' : '<em class="' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '（' + change(diff / fut.ref * 100, 2) + '%）</em>') + '</span>' +
-      '<a href="#h-vix"><small>VIX</small><b>' + (vix ? vix.last.toFixed(2) : '–') + '</b>' + (vixDiff === null ? '' : '<em class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</em>') + '</a>';
+      (nightSelf
+        ? '<a href="#h-vix"><small>VIX 夜盤自算</small><b>' + nightSelf.v.toFixed(2) + '</b>' + (nightDiff === null ? '' : '<em class="' + (nightDiff > 0 ? 'up-t' : nightDiff < 0 ? 'down-t' : '') + '">' + change(nightDiff, 2) + '</em>') + '</a>'
+        : '<a href="#h-vix"><small>VIX</small><b>' + (vix ? vix.last.toFixed(2) : '–') + '</b>' + (vixDiff === null ? '' : '<em class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</em>') + '</a>');
   }
 
   // 行情比較快：頁面 30 秒問一次，伺服器也只 30 秒問期交所一次
