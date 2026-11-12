@@ -267,10 +267,33 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gate button[disabled] { opacity: .6; cursor: default; }
 .gate .err { margin: 0; color: var(--loss); font-size: 14px; font-weight: 700; }
 .gate p.gate-lead { color: var(--ink); }
+/* 開通框旁邊的介紹和連結：電腦版兩欄，窄螢幕疊在下面 */
+.gate-grid { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 24px; align-items: start; max-width: 1120px; margin: 28px auto 6px; }
+.gate-grid .gate { max-width: none; margin: 0; }
+@media (max-width: 880px) { .gate-grid { grid-template-columns: minmax(0, 1fr); max-width: 560px; } }
+.gate-steps { margin-top: 18px; padding-top: 14px; border-top: 2px dashed var(--line); font-size: 14px; }
+.gate-steps ol { margin: 6px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.7; }
+.gate-steps a, .gate-social a { color: var(--indigo); font-weight: 700; }
+.gate-more { padding: 22px 24px 20px; background: var(--white); border: var(--edge); border-radius: 16px; box-shadow: var(--pop); }
+.gate-more h2 { margin: 0 0 6px; font-family: var(--display); font-weight: 400; font-size: 26px; }
+.gate-more > p { margin: 0 0 12px; color: var(--muted); line-height: 1.7; }
+.gate-see { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+.gate-see li { padding-left: 12px; border-left: 4px solid var(--coin); }
+.gate-see b { display: block; color: var(--ink); font-size: 14px; }
+.gate-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.gl { display: block; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 12px; color: var(--ink); text-decoration: none; box-shadow: 3px 3px 0 var(--ink); transition: transform .08s; }
+.gl:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.gl b { display: block; font-size: 15px; }
+.gl b::after { content: ' ›'; }
+.gl span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.gl.c-coin { background: var(--kraft); }
+.gl.c-sky { background: color-mix(in srgb, var(--sky) 55%, var(--white)); }
+.gate-social { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 14px 0 0; font-size: 13px; }
+@media (max-width: 520px) { .gate-see, .gate-links { grid-template-columns: minmax(0, 1fr); } }
 /* 沒開通的訪客：開通框下面只看示範帳號、時間價值、VIX 和示範帳號最近 10 盤 */
 .visitor-note { display: none; }
 body.visitor .visitor-note { display: block; }
-body.visitor .gate { margin: 28px auto 6px; }
+body.visitor .gate-grid { margin-bottom: 6px; }
 body.visitor section[aria-labelledby="h-now"] .head > p:not(.visitor-note), body.visitor #search, body.visitor #table-note { display: none; }
 body.visitor section[aria-labelledby="h-cmp"] > :not(#matrix-wrap) { display: none; }
 body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
@@ -330,6 +353,7 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
 </dialog>
 
 <div class="wrap" id="gate" hidden>
+ <div class="gate-grid">
   <div class="gate">
     <h1>同學開通才看得到</h1>
     <form id="gate-email">
@@ -340,7 +364,41 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
       <p class="err" id="gate-err" hidden></p>
       <button type="submit">開始看</button>
     </form>
+    <div class="gate-steps">
+      <b>怎麼開通</b>
+      <ol>
+        <li>上面輸入你的 Email，按「開始看」，系統會先記下來。</li>
+        <li>到 <a href="https://line.me/ti/p/MnAWXchQ7F" target="_blank" rel="noopener">LINE@ 歐大的官方客服</a> 說一聲，告訴歐大你的 Email。</li>
+        <li>歐大開通後，回到這頁再按一次「開始看」就進得去。</li>
+      </ol>
+    </div>
   </div>
+
+  <aside class="gate-more" aria-labelledby="gate-more-h">
+    <h2 id="gate-more-h">認識 Joption</h2>
+    <p>雙賣平衡下單機：同時賣 Call 和 Put，不猜方向，賺時間價值。程式即時監控風險、自動平衡部位，降低人為失誤和情緒干擾。</p>
+    <ul class="gate-see">
+      <li><b>同學即時績效</b>開通後看全部同學的當盤、當週獲利和部位</li>
+      <li><b>時間價值走勢</b>週三、週五合約結算前 10 盤怎麼走</li>
+      <li><b>VIX 波動率</b>日盤期交所公布，夜盤照公式自己算</li>
+      <li><b>示範帳號</b>歐大的實單示範帳戶，每盤績效都公開</li>
+    </ul>
+    <div class="gate-links">
+      <a class="gl c-coin" href="../"><b>Joption 官網</b><span>雙賣平衡下單機介紹、操作手冊、Q&amp;A</span></a>
+      <a class="gl c-sky" href="https://learn.joption.com.tw" target="_blank" rel="noopener"><b>歐大選擇權教室</b><span>從選擇權入門到 Joption 量化，9 個章節</span></a>
+      <a class="gl c-sky" href="../選單/雙賣平衡的核心策略/"><b>雙賣平衡的核心策略</b><span>為什麼雙賣、怎麼平衡、什麼時候調整</span></a>
+      <a class="gl c-coin" href="https://joption-tw.github.io/sample/" target="_blank" rel="noopener"><b>示範帳號歷史績效</b><span>每月報酬、累積報酬和每盤績效表</span></a>
+      <a class="gl c-coin" href="../選單/下載及安裝說明/"><b>訂閱及下載</b><span>怎麼取得下單機、安裝步驟</span></a>
+      <a class="gl c-sky" href="../選單/歐大的自我介紹/"><b>歐大是誰</b><span>Joption 雙賣平衡下單機的創辦人</span></a>
+    </div>
+    <p class="gate-social">
+      <a href="https://lihi.cc/LiHEH" target="_blank" rel="noopener">LINE 討論社群</a>
+      <a href="https://line.me/ti/p/MnAWXchQ7F" target="_blank" rel="noopener">LINE@ 官方客服</a>
+      <a href="https://www.youtube.com/@joption.suntree" target="_blank" rel="noopener">YouTube</a>
+      <a href="https://t.me/jnotify1688" target="_blank" rel="noopener">示範帳號 Telegram 通知群</a>
+    </p>
+  </aside>
+ </div>
 </div>
 
 <div class="wrap" id="loading" hidden>
