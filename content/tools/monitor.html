@@ -268,14 +268,16 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gate .err { margin: 0; color: var(--loss); font-size: 14px; font-weight: 700; }
 .gate p.gate-lead { color: var(--ink); }
 /* 開通框旁邊的介紹和連結：電腦版兩欄，窄螢幕疊在下面 */
-.gate-grid { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 24px; align-items: start; max-width: 1120px; margin: 28px auto 6px; }
-.gate-grid .gate { max-width: none; margin: 0; }
+.gate-grid { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 24px; align-items: stretch; max-width: 1120px; margin: 28px auto 6px; }
+.gate-col { display: flex; flex-direction: column; gap: 16px; }
+.gate-grid .gate { flex: 1; max-width: none; margin: 0; }
 @media (max-width: 880px) { .gate-grid { grid-template-columns: minmax(0, 1fr); max-width: 560px; } }
 .gate-steps { margin-top: 18px; padding-top: 14px; border-top: 2px dashed var(--line); font-size: 14px; }
 .gate-steps ol { margin: 6px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.7; }
 .gate-steps a { color: var(--indigo); font-weight: 700; }
-.gate-more { padding: 22px 24px 20px; background: var(--white); border: var(--edge); border-radius: 16px; box-shadow: var(--pop); }
-.gate-more h2 { margin: 0 0 6px; font-family: var(--display); font-weight: 400; font-size: 26px; }
+.gate-more { display: flex; flex-direction: column; padding: 22px 26px 22px; background: var(--white); border: var(--edge); border-radius: 16px; box-shadow: var(--pop); }
+.gate-more h2 { display: block; margin: 0 0 8px; background: none; font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.3; }
+.gate-more h2 span { display: inline-block; margin-left: 4px; padding: 0 10px; background: var(--coin); border: 2px solid var(--ink); border-radius: 99px; font-family: inherit; font-size: 17px; vertical-align: 4px; }
 .gate-more > p { margin: 0 0 12px; color: var(--muted); line-height: 1.7; }
 .gate-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .gl { display: block; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 12px; color: var(--ink); text-decoration: none; box-shadow: 3px 3px 0 var(--ink); transition: transform .08s; }
@@ -286,15 +288,15 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gl.c-coin { background: var(--kraft); }
 .gl.c-sky { background: color-mix(in srgb, var(--sky) 55%, var(--white)); }
 @media (max-width: 520px) { .gate-links { grid-template-columns: minmax(0, 1fr); } }
-.seesaw-h { margin: 4px 0 0; font-size: 17px; }
-.seesaw { display: block; width: 100%; max-width: 440px; height: auto; margin: 4px auto 6px; }
+.seesaw-h { margin: 6px 0 0; padding-top: 14px; border-top: 2px dashed var(--line); font-size: 17px; }
+.seesaw { display: block; width: 100%; max-width: 560px; height: auto; margin: 8px auto 14px; }
 .seesaw .ss-w { fill: var(--white); font-size: 17px; font-weight: 900; }
 .seesaw .ss-t { fill: var(--ink); font-size: 13px; font-weight: 700; }
 .seesaw .ss-s { fill: var(--muted); font-size: 12px; }
 .ss-plank { transform-box: view-box; transform-origin: 210px 100px; animation: seesaw 6s ease-in-out infinite; }
 @keyframes seesaw { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 50% { transform: rotate(0deg); } 75% { transform: rotate(5deg); } }
 @media (prefers-reduced-motion: reduce) { .ss-plank { animation: none; } }
-.seesaw-notes { margin: 0 0 16px; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.seesaw-notes { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 13px; color: var(--muted); line-height: 1.6; }
 .seesaw-notes li { padding-left: 12px; border-left: 4px solid var(--coin); }
 .seesaw-notes b { display: block; color: var(--ink); font-size: 14px; }
 .put-t { color: var(--put); } .call-t { color: var(--call); }
@@ -362,6 +364,7 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
 
 <div class="wrap" id="gate" hidden>
  <div class="gate-grid">
+  <div class="gate-col">
   <div class="gate">
     <h1>同學開通才看得到</h1>
     <form id="gate-email">
@@ -381,10 +384,15 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
       </ol>
     </div>
   </div>
+  <div class="gate-links">
+      <a class="gl c-coin" href="../"><b>Joption 官網</b><span>雙賣平衡下單機介紹、操作手冊、Q&amp;A</span></a>
+      <a class="gl c-sky" href="https://learn.joption.com.tw" target="_blank" rel="noopener"><b>歐大選擇權教室</b><span>從選擇權入門到 Joption 量化，9 個章節</span></a>
+  </div>
+  </div>
 
   <aside class="gate-more" aria-labelledby="gate-more-h">
-    <h2 id="gate-more-h">認識 Joption</h2>
-    <p>雙賣平衡下單機：同時賣 Call 和 Put，不猜方向，賺時間價值。程式即時監控風險、自動平衡部位，降低人為失誤和情緒干擾。</p>
+    <h2 id="gate-more-h">認識 Joption <span>雙賣平衡下單機</span></h2>
+    <p>同時賣 Call 和 Put，不猜方向，賺時間價值。程式即時監控風險、自動平衡部位，降低人為失誤和情緒干擾。</p>
     <h3 class="seesaw-h">像蹺蹺板一樣的雙賣平衡</h3>
     <svg class="seesaw" viewBox="0 0 420 176" role="img" aria-label="蹺蹺板：左邊賣 Put、右邊賣 Call，中間的支點是時間價值">
       <line x1="20" y1="142" x2="400" y2="142" stroke="var(--line)" stroke-width="3" stroke-linecap="round"/>
@@ -406,10 +414,6 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
       <li><b>板子要保持平衡</b>行情往哪邊走，程式就自動調整口數，讓兩邊一樣重，不讓單邊風險變大。</li>
       <li><b>中間的支點是時間價值</b>選擇權每過一天價值就少一點，賣方賺的就是這段時間的流逝。</li>
     </ul>
-    <div class="gate-links">
-      <a class="gl c-coin" href="../"><b>Joption 官網</b><span>雙賣平衡下單機介紹、操作手冊、Q&amp;A</span></a>
-      <a class="gl c-sky" href="https://learn.joption.com.tw" target="_blank" rel="noopener"><b>歐大選擇權教室</b><span>從選擇權入門到 Joption 量化，9 個章節</span></a>
-    </div>
   </aside>
  </div>
 </div>
