@@ -273,13 +273,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 @media (max-width: 880px) { .gate-grid { grid-template-columns: minmax(0, 1fr); max-width: 560px; } }
 .gate-steps { margin-top: 18px; padding-top: 14px; border-top: 2px dashed var(--line); font-size: 14px; }
 .gate-steps ol { margin: 6px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.7; }
-.gate-steps a, .gate-social a { color: var(--indigo); font-weight: 700; }
+.gate-steps a { color: var(--indigo); font-weight: 700; }
 .gate-more { padding: 22px 24px 20px; background: var(--white); border: var(--edge); border-radius: 16px; box-shadow: var(--pop); }
 .gate-more h2 { margin: 0 0 6px; font-family: var(--display); font-weight: 400; font-size: 26px; }
 .gate-more > p { margin: 0 0 12px; color: var(--muted); line-height: 1.7; }
-.gate-see { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
-.gate-see li { padding-left: 12px; border-left: 4px solid var(--coin); }
-.gate-see b { display: block; color: var(--ink); font-size: 14px; }
 .gate-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .gl { display: block; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 12px; color: var(--ink); text-decoration: none; box-shadow: 3px 3px 0 var(--ink); transition: transform .08s; }
 .gl:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
@@ -288,8 +285,19 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gl span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .gl.c-coin { background: var(--kraft); }
 .gl.c-sky { background: color-mix(in srgb, var(--sky) 55%, var(--white)); }
-.gate-social { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 14px 0 0; font-size: 13px; }
-@media (max-width: 520px) { .gate-see, .gate-links { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .gate-links { grid-template-columns: minmax(0, 1fr); } }
+.seesaw-h { margin: 4px 0 0; font-size: 17px; }
+.seesaw { display: block; width: 100%; max-width: 440px; height: auto; margin: 4px auto 6px; }
+.seesaw .ss-w { fill: var(--white); font-size: 17px; font-weight: 900; }
+.seesaw .ss-t { fill: var(--ink); font-size: 13px; font-weight: 700; }
+.seesaw .ss-s { fill: var(--muted); font-size: 12px; }
+.ss-plank { transform-box: view-box; transform-origin: 210px 100px; animation: seesaw 6s ease-in-out infinite; }
+@keyframes seesaw { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 50% { transform: rotate(0deg); } 75% { transform: rotate(5deg); } }
+@media (prefers-reduced-motion: reduce) { .ss-plank { animation: none; } }
+.seesaw-notes { margin: 0 0 16px; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.seesaw-notes li { padding-left: 12px; border-left: 4px solid var(--coin); }
+.seesaw-notes b { display: block; color: var(--ink); font-size: 14px; }
+.put-t { color: var(--put); } .call-t { color: var(--call); }
 /* 沒開通的訪客：開通框下面只看示範帳號、時間價值、VIX 和示範帳號最近 10 盤 */
 .visitor-note { display: none; }
 body.visitor .visitor-note { display: block; }
@@ -377,26 +385,31 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
   <aside class="gate-more" aria-labelledby="gate-more-h">
     <h2 id="gate-more-h">認識 Joption</h2>
     <p>雙賣平衡下單機：同時賣 Call 和 Put，不猜方向，賺時間價值。程式即時監控風險、自動平衡部位，降低人為失誤和情緒干擾。</p>
-    <ul class="gate-see">
-      <li><b>同學即時績效</b>開通後看全部同學的當盤、當週獲利和部位</li>
-      <li><b>時間價值走勢</b>週三、週五合約結算前 10 盤怎麼走</li>
-      <li><b>VIX 波動率</b>日盤期交所公布，夜盤照公式自己算</li>
-      <li><b>示範帳號</b>歐大的實單示範帳戶，每盤績效都公開</li>
+    <h3 class="seesaw-h">像蹺蹺板一樣的雙賣平衡</h3>
+    <svg class="seesaw" viewBox="0 0 420 176" role="img" aria-label="蹺蹺板：左邊賣 Put、右邊賣 Call，中間的支點是時間價值">
+      <line x1="20" y1="142" x2="400" y2="142" stroke="var(--line)" stroke-width="3" stroke-linecap="round"/>
+      <polygon points="178,142 242,142 210,100" fill="var(--coin)" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round"/>
+      <rect x="166" y="150" width="88" height="22" rx="11" fill="var(--white)" stroke="var(--ink)" stroke-width="2"/>
+      <text x="210" y="166" text-anchor="middle" class="ss-t">時間價值</text>
+      <g class="ss-plank">
+        <rect x="36" y="92" width="348" height="10" rx="5" fill="var(--white)" stroke="var(--ink)" stroke-width="2.5"/>
+        <rect x="48" y="50" width="104" height="42" rx="11" fill="var(--put)" stroke="var(--ink)" stroke-width="2.5"/>
+        <text x="100" y="77" text-anchor="middle" class="ss-w">賣 Put</text>
+        <rect x="268" y="50" width="104" height="42" rx="11" fill="var(--call)" stroke="var(--ink)" stroke-width="2.5"/>
+        <text x="320" y="77" text-anchor="middle" class="ss-w">賣 Call</text>
+      </g>
+      <text x="100" y="30" text-anchor="middle" class="ss-s">跌的那一邊</text>
+      <text x="320" y="30" text-anchor="middle" class="ss-s">漲的那一邊</text>
+    </svg>
+    <ul class="seesaw-notes">
+      <li><b><span class="put-t">左邊賣 Put</span>、<span class="call-t">右邊賣 Call</span></b>同時收兩邊的權利金，不猜明天漲還是跌。</li>
+      <li><b>板子要保持平衡</b>行情往哪邊走，程式就自動調整口數，讓兩邊一樣重，不讓單邊風險變大。</li>
+      <li><b>中間的支點是時間價值</b>選擇權每過一天價值就少一點，賣方賺的就是這段時間的流逝。</li>
     </ul>
     <div class="gate-links">
       <a class="gl c-coin" href="../"><b>Joption 官網</b><span>雙賣平衡下單機介紹、操作手冊、Q&amp;A</span></a>
       <a class="gl c-sky" href="https://learn.joption.com.tw" target="_blank" rel="noopener"><b>歐大選擇權教室</b><span>從選擇權入門到 Joption 量化，9 個章節</span></a>
-      <a class="gl c-sky" href="../選單/雙賣平衡的核心策略/"><b>雙賣平衡的核心策略</b><span>為什麼雙賣、怎麼平衡、什麼時候調整</span></a>
-      <a class="gl c-coin" href="https://joption-tw.github.io/sample/" target="_blank" rel="noopener"><b>示範帳號歷史績效</b><span>每月報酬、累積報酬和每盤績效表</span></a>
-      <a class="gl c-coin" href="../選單/下載及安裝說明/"><b>訂閱及下載</b><span>怎麼取得下單機、安裝步驟</span></a>
-      <a class="gl c-sky" href="../選單/歐大的自我介紹/"><b>歐大是誰</b><span>Joption 雙賣平衡下單機的創辦人</span></a>
     </div>
-    <p class="gate-social">
-      <a href="https://lihi.cc/LiHEH" target="_blank" rel="noopener">LINE 討論社群</a>
-      <a href="https://line.me/ti/p/MnAWXchQ7F" target="_blank" rel="noopener">LINE@ 官方客服</a>
-      <a href="https://www.youtube.com/@joption.suntree" target="_blank" rel="noopener">YouTube</a>
-      <a href="https://t.me/jnotify1688" target="_blank" rel="noopener">示範帳號 Telegram 通知群</a>
-    </p>
   </aside>
  </div>
 </div>
