@@ -264,6 +264,14 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gate button[type="submit"]:active { transform: translate(3px, 3px); box-shadow: none; }
 .gate button[disabled] { opacity: .6; cursor: default; }
 .gate .err { margin: 0; color: var(--loss); font-size: 14px; font-weight: 700; }
+.gate label small { margin-left: 4px; color: var(--muted); font-weight: 400; font-size: 12px; }
+/* 沒開通的訪客：開通框下面只看示範帳號、時間價值、VIX 和示範帳號最近 10 盤 */
+.visitor-note { display: none; }
+body.visitor .visitor-note { display: block; }
+body.visitor .gate { margin: 28px auto 6px; }
+body.visitor section[aria-labelledby="h-now"] .head > p:not(.visitor-note), body.visitor #search, body.visitor #table-note { display: none; }
+body.visitor section[aria-labelledby="h-cmp"] > :not(#matrix-wrap) { display: none; }
+body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
 .pill-btn { cursor: pointer; font-weight: 700; }
 .pill-btn:hover { background: var(--sky); }
 .vix-stats { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 12px 16px 0; font-size: 14px; }
@@ -323,9 +331,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <div class="gate">
     <h1>同學開通才看得到</h1>
     <form id="gate-email">
-      <p>輸入你開通的 Email 就能看。</p>
+      <p>輸入你開通的 Email 就能看全部同學。還沒開通的話，下面可以先看示範帳號、時間價值和 VIX。</p>
       <label for="gate-email-input">Email</label>
       <input id="gate-email-input" type="email" autocomplete="email" required placeholder="you@example.com">
+      <label for="gate-ref-input">分享人暱稱<small>（第一次申請要填：是誰把這個網頁分享給你）</small></label>
+      <input id="gate-ref-input" type="text" autocomplete="off" maxlength="40" placeholder="例如：星爺">
       <p class="err" id="gate-err" hidden></p>
       <button type="submit">開始看</button>
     </form>
@@ -353,6 +363,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         </div>
         <button class="btn" id="toggle-all" aria-pressed="false">顯示全部欄位</button>
       </div>
+      <p class="visitor-note">歐大示範帳戶現在的狀態，點這一列可以看完整的績效頁。開通後就能看到全部同學。</p>
       <p>順序可以自己排：按住暱稱左邊的 ⋮⋮ 上下拖曳同學，用滑鼠按住欄位名稱左右拖曳欄位，放開就記住了，下次打開還是你排的順序。每個人排自己的，不會影響別人。進場、出場時間約每 3 分鐘比對一次口數，有幾分鐘誤差。</p>
     </div>
     <div class="card"><div class="scroll" id="table"></div></div>
@@ -605,11 +616,11 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       return;
     }
     const token = getToken();
-    if (!token || document.hidden || quoteBusy || Date.now() - lastQuote < 25000) return;
+    if (document.hidden || quoteBusy || Date.now() - lastQuote < 25000) return;
     quoteBusy = true;
     lastQuote = Date.now();
     try {
-      const res = await api({ action: 'quote', token: token });
+      const res = await api(token ? { action: 'quote', token: token } : { action: 'quote', preview: true });
       if (res.ok && res.quote) {
         state.quote = res.quote;
         if (state.data) renderMarket(state.data);
@@ -1635,6 +1646,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   function renderStatus() {
     const d = state.data;
     if (d && d.previewNote) { $('live-text').textContent = d.previewNote; return; }
+    if (state.isPreview) { $('live-dot').classList.add('off'); $('live-text').textContent = '訪客預覽，最後 ' + new Date(state.lastOk).toTimeString().slice(0, 5); return; }
     const stale = state.lastOk && Date.now() - state.lastOk > REFRESH_MS * 3;
     $('live-dot').classList.toggle('off', !!stale);
     $('live-text').textContent = stale ? '讀不到試算表，停在 ' + new Date(state.lastOk).toTimeString().slice(0, 5)
@@ -1675,7 +1687,10 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   function showGate(on) {
     $('gate').hidden = !on;
     $('loading').hidden = true;
-    $('app').hidden = on;
+    const visitor = on && !!state.isPreview && !!state.data;  // 訪客：開通框下面接著示範帳號和圖
+    document.body.classList.toggle('visitor', visitor);
+    $('h-now').textContent = visitor ? '示範帳號績效' : '同學現況';
+    $('app').hidden = on && !visitor;
     $('logout').hidden = on || !!window.MON_SNAPSHOT;
     $('preview-gate').hidden = on || !window.MON_SNAPSHOT;
     if (on) {
@@ -1695,7 +1710,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     }
     if (!DATA_URL) { $('live-text').textContent = '還沒接上試算表'; $('live-dot').classList.add('off'); return; }
     const token = getToken();
-    if (!token) { state.data = null; showGate(true); return; }
+    if (!token) { await loadPreview(force); return; }
     if (loading || (state.data && (document.hidden || (force !== true && Date.now() - lastFetch < 30000)))) return;
     loading = true;
     lastFetch = Date.now();
@@ -1705,7 +1720,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     }
     try {
       const res = await api({ action: 'data', token: token });
-      if (!res.ok) { setToken(null); state.data = null; showGate(true); return; }
+      if (!res.ok) { setToken(null); state.data = null; state.isPreview = false; loading = false; showGate(true); await loadPreview(true); return; }
+      state.isPreview = false;
       state.data = res.data;
       state.canErase = !!res.canErase;
       state.canHistory = !!res.canHistory;
@@ -1720,6 +1736,29 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     finally { loading = false; }
   }
 
+  // 沒開通的訪客：伺服器只送示範帳號、時間價值和 VIX
+  async function loadPreview(force) {
+    if (state.data && !state.isPreview) { state.data = null; }
+    if (!state.data) showGate(true);
+    if (loading || (state.data && (document.hidden || (force !== true && Date.now() - lastFetch < 30000)))) return;
+    loading = true;
+    lastFetch = Date.now();
+    try {
+      const res = await api({ action: 'preview' });
+      if (!res.ok || getToken()) return;  // 等的時候已經登入了就不蓋掉
+      state.isPreview = true;
+      state.data = res.data;
+      state.canErase = false; state.canHistory = false; state.eraseOn = false;
+      state.vixToday = res.vixToday || [];
+      state.vixSelf = res.vixSelf || null;
+      state.lastOk = Date.now();
+      renderPresence(null);
+      showGate(true);
+      renderAll();
+    } catch (e) { /* 下次再試，開通框一直都在 */ }
+    finally { loading = false; }
+  }
+
   $('gate-email').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
@@ -1727,20 +1766,23 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     btn.disabled = true; btn.textContent = '確認中';
     err.hidden = true;
     try {
-      const res = await api({ action: 'login', email: $('gate-email-input').value.trim() });
+      const ref = $('gate-ref-input').value.trim();
+      const res = await api({ action: 'login', email: $('gate-email-input').value.trim(), ref: ref });
       if (res.ok) {
         if (window.MON_SNAPSHOT) state.gateDemo = false; else setToken(res.token);
         lastQuote = 0;
         loadQuote();
         await load(true);
       } else {
-        err.textContent = res.pending ? '這個 Email 還沒開通，已經幫你記下來了。等歐大開通後，再回來按一次就能看。' : 'Email 格式不對，再檢查一下。';
+        err.textContent = res.needRef ? '第一次申請要填分享人的暱稱：是誰把這個網頁分享給你？'
+          : res.pending ? '這個 Email 還沒開通，已經幫你記下來了' + (ref ? '（分享人：' + ref + '）' : '') + '。等歐大開通後，再回來按一次就能看。' : 'Email 格式不對，再檢查一下。';
         err.hidden = false;
+        if (res.needRef) $('gate-ref-input').focus();
       }
     } catch (x) { err.textContent = '現在連不上，等一下再試一次。'; err.hidden = false; }
     btn.disabled = false; btn.textContent = '開始看';
   });
-  $('logout').addEventListener('click', () => { setToken(null); state.data = null; showGate(true); });
+  $('logout').addEventListener('click', () => { setToken(null); state.data = null; state.isPreview = false; renderPresence(null); showGate(true); load(true); });
   $('preview-gate').addEventListener('click', () => { state.gateDemo = true; showGate(true); });
 
   // 事件
