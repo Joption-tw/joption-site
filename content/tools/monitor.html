@@ -271,6 +271,8 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .vix-stats .self b { color: var(--coin-deep); }
 .vix-key { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 4px 16px 0; color: var(--muted); font-size: 12px; font-weight: 700; }
 .vix-key { align-items: center; }
+.vix-key i.dash { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 8px); }
+.vix-stats .self small { margin-left: 6px; font-size: 12px; color: var(--muted); }
 .vix-zoom { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 .vix-zoom span { margin-left: 8px; }
 .vix-zoom .chip { margin: 0; min-width: 28px; font-size: 13px; }
@@ -375,7 +377,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
   <section aria-labelledby="h-vix">
     <div class="head">
       <h2 id="h-vix">VIX 波動率</h2>
-      <p>臺指選擇權波動率指數。日盤是期交所公布的 VIX；期交所夜盤不公布，每天左邊淺色那段夜盤是照期交所的公式自己算的，每 2 分鐘一筆。</p>
+      <p>臺指選擇權波動率指數。日盤是期交所公布的 VIX；期交所夜盤不公布，每天左邊淺色那段夜盤是照期交所的公式自己算的，每 2 分鐘一筆；日盤也一起算一條金色虛線，跟期交所比對。</p>
     </div>
     <div class="card">
       <div class="vix-stats num" id="vix-stats"></div>
@@ -1213,7 +1215,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
     const below = vals.filter(x => x < now).length;
     const nightAll = selfPts('夜盤'), dayAll = selfPts('日盤');
     const nightLast = nightAll[nightAll.length - 1], nightNow = nightLast && Date.now() - nightLast.ms < 16 * 3600000 ? nightLast : null;
-    stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span>' + (nightNow ? '<span class="self">夜盤自算<b>' + nightNow.v.toFixed(2) + '</b></span>' : '') +
+    // 日盤進行中：自算的最新一筆跟期交所比
+    const dayLast = dayAll[dayAll.length - 1], dayNow = dayLast && Date.now() - dayLast.ms < 20 * 60000 ? dayLast : null;
+    stats.innerHTML = '<span>現在<b>' + now.toFixed(2) + '</b></span>' + (dayNow ? '<span class="self">日盤自算<b>' + dayNow.v.toFixed(2) + '</b><small>差 ' + change(dayNow.v - now, 2) + '</small></span>' : nightNow ? '<span class="self">夜盤自算<b>' + nightNow.v.toFixed(2) + '</b></span>' : '') +
       '<span>近 3 個月最高<b>' + hi.toFixed(2) + '</b></span><span>最低<b>' + lo.toFixed(2) + '</b></span><span>比近 3 個月 ' + Math.round(below / vals.length * 100) + '% 的日子高</span>';
     const days = vixDays(), keys = days.map(d => d.toDateString());
     const clamp = x => Math.max(0, Math.min(1, x));
@@ -1232,6 +1236,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       return i < 0 ? null : i + frac;
     };
     const nPts = nightAll.map(q => ({ p: at(q.ms), v: q.v, ms: q.ms, night: true })).filter(q => q.p !== null);
+    const dPts = dayAll.map(q => ({ p: at(q.ms), v: q.v, ms: q.ms })).filter(q => q.p !== null);  // 日盤自算，比對用
     const pts = [];
     // 今天用每分鐘的紀錄，昨天以前用試算表的 15 分鐘紀錄
     const dayKey = text => { const t = String(text).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/); return t ? +t[1] * 10000 + +t[2] * 100 + +t[3] : 0; };  // 試算表的日期可能沒補零
@@ -1281,7 +1286,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       let yLo, yHi;
       if (view.y0 !== null) { yLo = view.y0; yHi = view.y1; }
       else {
-        let use = allPts.filter(inView).map(q => q.v);
+        let use = allPts.concat(dPts).filter(inView).map(q => q.v);
         if (!use.length) use = allPts.map(q => q.v);
         yLo = Math.min.apply(null, use); yHi = Math.max.apply(null, use);
         const pad = Math.max(.3, (yHi - yLo) * .08); yLo -= pad; yHi += pad;
@@ -1290,7 +1295,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       if (view.y0 === null) { yLo = Math.floor(yLo / step) * step; yHi = Math.ceil(yHi / step) * step; }
       cur = { lo: yLo, hi: yHi };
       const y = val => m.t + (1 - (val - yLo) / (yHi - yLo || 1)) * plotH;
-      let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="VIX 走勢，橫軸是最近 10 個交易日" id="vix-svg"' + (span < VIX_DAYS || view.y0 !== null ? ' class="pan"' : '') + '>';
+      let svg = '';
       svg += '<defs><clipPath id="vix-clip"><rect x="' + m.l + '" y="' + (m.t - 3) + '" width="' + plotW + '" height="' + (plotH + 6) + '"/></clipPath></defs>';
       for (let k = Math.ceil(yLo / step - 1e-9); k * step <= yHi + 1e-9; k++) {
         const t = k * step;
@@ -1343,6 +1348,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       let night = '';
       nPts.forEach((q, i) => { night += (i && q.ms - nPts[i - 1].ms <= 20 * 60000 ? 'L' : 'M') + x(q.p).toFixed(1) + ' ' + y(q.v).toFixed(1); });
       if (night) svg += '<path d="' + night + '" fill="none" stroke="var(--coin-deep)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+      let daySelf = '';
+      dPts.forEach((q, i) => { daySelf += (i && q.ms - dPts[i - 1].ms <= 20 * 60000 ? 'L' : 'M') + x(q.p).toFixed(1) + ' ' + y(q.v).toFixed(1); });
+      if (daySelf) svg += '<path d="' + daySelf + '" fill="none" stroke="var(--coin-deep)" stroke-width="1.8" stroke-dasharray="5 3" stroke-linejoin="round" opacity=".9"/>';
       const nSeen = nPts.filter(inView);
       if (nSeen.length && nSeen.length < 3) nSeen.forEach(q => { svg += '<circle cx="' + x(q.p) + '" cy="' + y(q.v) + '" r="2.5" fill="var(--coin-deep)"/>'; });
       svg += '</g>';
@@ -1354,24 +1362,35 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
       };
       tag(last, 'var(--indigo)', 'var(--indigo)', last.v.toFixed(2), false);
       if (nl && nl.ms > last.ms) tag(nl, 'var(--coin-deep)', 'var(--ink)', '夜 ' + nl.v.toFixed(2), true);  // 夜盤進行中：自算的最後一點也標出來
-      svg += '<line id="vix-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/></svg>';
+      svg += '<line id="vix-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/>';
       const zoomed = span < VIX_DAYS || view.y0 !== null;
-      const key = '<div class="vix-key"><span><i style="--c:var(--indigo)"></i>期交所 VIX（日盤）</span><span><i style="--c:var(--coin-deep)"></i>自算（夜盤）</span>' +
+      const key = '<span><i style="--c:var(--indigo)"></i>期交所 VIX（日盤）</span><span><i style="--c:var(--coin-deep)"></i>自算（夜盤）</span><span><i class="dash" style="--c:var(--coin-deep)"></i>自算（日盤，比對用）</span>' +
         '<div class="vix-zoom" title="滾輪縮放時間；Shift＋滾輪或在左邊數字上滾輪縮放 VIX；拖曳移動；雙擊還原">' +
         '<span>時間</span><button type="button" class="chip" data-z="x-in" aria-label="時間放大">＋</button><button type="button" class="chip" data-z="x-out" aria-label="時間縮小">－</button>' +
         '<span>VIX</span><button type="button" class="chip" data-z="y-in" aria-label="VIX 放大">＋</button><button type="button" class="chip" data-z="y-out" aria-label="VIX 縮小">－</button>' +
-        (zoomed ? '<button type="button" class="chip on" data-z="reset">還原</button>' : '') + '</div></div>';
-      box.innerHTML = key + svg + '<div class="tip" id="vix-tip" hidden></div>';
+        (zoomed ? '<button type="button" class="chip on" data-z="reset">還原</button>' : '') + '</div>';
+      // svg 只建一次、之後只換裡面：滾輪連續捲的時候元素被換掉，後面的滾輪會掉到整頁捲動
+      if (!$('vix-svg')) {
+        box.innerHTML = '<div class="vix-key" id="vix-key"></div><svg id="vix-svg" role="img" aria-label="VIX 走勢，橫軸是最近 10 個交易日"></svg><div class="tip" id="vix-tip" hidden></div>';
+        const s = $('vix-svg'), call = k => e => { if (box._vix && box._vix[k]) box._vix[k](e); };
+        ['pointermove', 'pointerleave', 'pointerdown', 'dblclick'].forEach(k => s.addEventListener(k, call(k)));
+        s.addEventListener('wheel', call('wheel'), { passive: false });
+      }
+      const el = $('vix-svg');
+      el.setAttribute('viewBox', '0 0 ' + W + ' ' + H); el.setAttribute('width', W); el.setAttribute('height', H);
+      el.classList.toggle('pan', span < VIX_DAYS || view.y0 !== null);
+      el.innerHTML = svg;
+      $('vix-key').innerHTML = key;
       box.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', () => {
         const z = b.dataset.z;
         if (z === 'reset') reset();
         else if (z[0] === 'x') zoomX((view.x0 + view.x1) / 2, z === 'x-in' ? .6 : 1 / .6);
         else zoomY((cur.lo + cur.hi) / 2, z === 'y-in' ? .7 : 1 / .7);
       }));
-      const el = $('vix-svg'), tip = $('vix-tip'), cross = $('vix-cross');
+      const tip = $('vix-tip'), cross = $('vix-cross'), on = {};
       const pAt = px => view.x0 + (Math.max(m.l, Math.min(W - m.r, px)) - m.l) / plotW * (view.x1 - view.x0);  // 用最新的 view，滾輪比重畫快時也對得準
       const tol = 40 / dayPx;
-      el.addEventListener('pointermove', e => {
+      on.pointermove = e => {
         const r = el.getBoundingClientRect();
         const p = pAt((e.clientX - r.left) / r.width * W);
         let best = null;
@@ -1388,18 +1407,18 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         tip.hidden = false;
         const left = px / W * r.width;
         tip.style.left = (left > r.width * .55 ? left - tip.offsetWidth - 2 : left + 22) + 'px';
-      });
-      el.addEventListener('pointerleave', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+      };
+      on.pointerleave = () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); };
       // 滾輪：時間軸以游標為中心縮放；Shift 或游標在左邊數字上時縮放 VIX
-      el.addEventListener('wheel', e => {
+      on.wheel = e => {
         e.preventDefault();
         const r = el.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W, py = (e.clientY - r.top) / r.height * H;
         const f = Math.exp(Math.max(-300, Math.min(300, e.deltaY || e.deltaX)) * .0015);
         if (e.shiftKey || px < m.l) zoomY(cur.lo + (1 - (Math.max(m.t, Math.min(H - m.b, py)) - m.t) / plotH) * (cur.hi - cur.lo), f);
         else zoomX(pAt(px), f);
-      }, { passive: false });
+      };
       // 拖曳平移：左右移時間，縱軸放大過才上下移
-      el.addEventListener('pointerdown', e => {
+      on.pointerdown = e => {
         if (e.button !== 0) return;
         const r = el.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
         const a0 = view.x0, w = view.x1 - view.x0, lo = yLo, hi = yHi, manualY = view.y0 !== null;
@@ -1417,8 +1436,9 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', end);
         window.addEventListener('pointercancel', end);
-      });
-      el.addEventListener('dblclick', reset);
+      };
+      on.dblclick = reset;
+      box._vix = on;
     }
     draw();
   }
