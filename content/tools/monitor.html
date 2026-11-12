@@ -280,13 +280,16 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 .gate-more h2 span { display: inline-block; margin-left: 4px; padding: 0 10px; background: var(--coin); border: 2px solid var(--ink); border-radius: 99px; font-family: inherit; font-size: 17px; vertical-align: 4px; }
 .gate-more > p { margin: 0 0 12px; color: var(--muted); line-height: 1.7; }
 .gate-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.gl { display: block; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 12px; color: var(--ink); text-decoration: none; box-shadow: 3px 3px 0 var(--ink); transition: transform .08s; }
-.gl:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
-.gl b { display: block; font-size: 15px; }
-.gl b::after { content: ' ›'; }
-.gl span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.gl.c-coin { background: var(--kraft); }
-.gl.c-sky { background: color-mix(in srgb, var(--sky) 55%, var(--white)); }
+/* 連結做成按鈕：整張卡可以點，右邊有「前往 →」，滑過會浮起來，按下會壓下去 */
+.gl { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: var(--edge); border-radius: 14px; color: var(--ink); text-decoration: none; box-shadow: var(--pop); cursor: pointer; transition: transform .08s, box-shadow .08s; }
+.gl:hover, .gl:focus-visible { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+.gl:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+.gl-txt b { display: block; font-size: 16px; font-weight: 900; }
+.gl-txt span { display: block; margin-top: 2px; color: var(--ink); opacity: .7; font-size: 12px; line-height: 1.5; }
+.gl-go { align-self: flex-start; padding: 4px 14px; background: var(--ink); color: var(--white); border-radius: 99px; font-size: 13px; font-weight: 900; }
+.gl:hover .gl-go { background: var(--indigo); }
+.gl.c-coin { background: var(--coin); }
+.gl.c-sky { background: var(--sky); }
 @media (max-width: 520px) { .gate-links { grid-template-columns: minmax(0, 1fr); } }
 .seesaw-h { margin: 6px 0 0; padding-top: 14px; border-top: 2px dashed var(--line); font-size: 17px; }
 .seesaw { display: block; width: 100%; max-width: 560px; height: auto; margin: 8px auto 14px; }
@@ -385,8 +388,8 @@ body.visitor section[aria-labelledby="h-cmp"] { padding-top: 0; }
     </div>
   </div>
   <div class="gate-links">
-      <a class="gl c-coin" href="../"><b>Joption 官網</b><span>雙賣平衡下單機介紹、操作手冊、Q&amp;A</span></a>
-      <a class="gl c-sky" href="https://learn.joption.com.tw" target="_blank" rel="noopener"><b>歐大選擇權教室</b><span>從選擇權入門到 Joption 量化，9 個章節</span></a>
+      <a class="gl c-coin" href="../"><span class="gl-txt"><b>Joption 官網</b><span>下單機介紹、操作手冊、Q&amp;A</span></span><span class="gl-go">前往 →</span></a>
+      <a class="gl c-sky" href="https://learn.joption.com.tw" target="_blank" rel="noopener"><span class="gl-txt"><b>歐大選擇權教室</b><span>選擇權入門到 Joption 量化</span></span><span class="gl-go">前往 →</span></a>
   </div>
   </div>
 
