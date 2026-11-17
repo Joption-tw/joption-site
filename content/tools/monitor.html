@@ -80,6 +80,9 @@ button, input, select { font: inherit; color: inherit; }
 .slip-lamp b { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 3vw, 42px); line-height: 1; white-space: nowrap; }
 .mk-slip .mk-sub { line-height: 1.4; }
 .slip-how { color: var(--indigo); font-size: 13px; font-weight: 900; }
+.slip-off { display: inline-block; padding: 1px 10px; background: var(--ink); color: var(--white); border-radius: 99px; font-size: 13px; font-weight: 900; white-space: nowrap; }
+.slip-sum .slip-off { margin-left: 4px; }
+.ticker .slip-off { font-size: 12px; }
 .ticker .tick-slip { align-items: center; }
 .ticker .tick-slip .lamp { width: 22px; height: 22px; }
 #slip-dlg { width: min(560px, calc(100vw - 32px)); }
@@ -794,33 +797,35 @@ td.tog, .m-only { display: none; }
       (nightSelf
         ? '<a href="#h-vix"><small>VIX 夜盤自算</small><b>' + nightSelf.v.toFixed(2) + '</b>' + (nightDiff === null ? '' : '<em class="' + (nightDiff > 0 ? 'up-t' : nightDiff < 0 ? 'down-t' : '') + '">' + change(nightDiff, 2) + '</em>') + '</a>'
         : '<a href="#h-vix"><small>VIX</small><b>' + (vix ? vix.last.toFixed(2) : '–') + '</b>' + (vixDiff === null ? '' : '<em class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</em>') + '</a>') +
-      (q && q.slip ? '<a href="#" data-slip-open class="tick-slip lamp-' + slipLamp(q.slip) + '" title="滑價紅綠燈，點我看規則"><small>滑價紅綠燈</small><i class="lamp"></i><b>' + slipName(q.slip) + '</b></a>' : '');
+      (q && q.slip ? '<a href="#" data-slip-open class="tick-slip lamp-' + slipLamp(q.slip) + '" title="滑價紅綠燈，點我看規則"><small>滑價紅綠燈</small><i class="lamp"></i><b>' + slipName(q.slip) + '</b>' + slipOff(q.slip) + '</a>' : '');
   }
 
   // 滑價燈號：伺服器跟行情一起 30 秒算一次；超過 3 分鐘沒更新（收盤、還沒開盤）就變灰，標最後一次是什麼燈
   const SLIP_NAME = { g: '綠燈', y: '黃燈', r: '紅燈' };
   function slipStale(s) { return !s || Date.now() - s.ms > 3 * 60000; }
-  function slipLamp(s) { return slipStale(s) ? 'off' : s.light; }
+  function slipLamp(s) { return slipStale(s) || !s.light ? 'off' : s.light; }
   function slipHm(ms) { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
-  function slipName(s) { return !s ? '沒資料' : slipStale(s) ? '收盤' : SLIP_NAME[s.light]; }
+  function slipName(s) { return !s ? '沒資料' : slipStale(s) ? '收盤' : SLIP_NAME[s.light] || '沒檔位'; }
+  // 造市下班?：最佳買賣價都沒超過 5 口的檔位超過 5 檔（收盤後不顯示）
+  function slipOff(s) { return s && !slipStale(s) && s.off ? '<span class="slip-off">造市下班?</span>' : ''; }
   function slipCell(s) {
-    const sub = !s ? '開盤後 30 秒內出現' : slipStale(s) ? '最後 ' + slipHm(s.ms) + ' 是' + SLIP_NAME[s.light] : s.why + '・' + slipHm(s.ms).split(' ')[1];
+    const sub = !s ? '開盤後 30 秒內出現' : slipStale(s) ? '最後 ' + slipHm(s.ms) + ' 是' + (SLIP_NAME[s.light] || '沒檔位') : s.why + '・' + slipHm(s.ms).split(' ')[1];
     return '<button type="button" class="mk mk-slip lamp-' + slipLamp(s) + '" data-slip-open aria-label="滑價紅綠燈：' + slipName(s) + '，點我看規則">' +
-      '<h3>滑價紅綠燈</h3><span class="slip-lamp"><i class="lamp"></i><b>' + slipName(s) + '</b></span>' +
+      '<h3>滑價紅綠燈</h3><span class="slip-lamp"><i class="lamp"></i><b>' + slipName(s) + '</b></span>' + slipOff(s) +
       '<span class="mk-sub">' + esc(sub) + '</span><span class="slip-how">點我看規則 ›</span></button>';
   }
   function renderSlipDlg() {
     const s = state.quote && state.quote.slip;
-    const now = s ? '<div class="slip-sum lamp-' + slipLamp(s) + '"><div class="slip-big"><i class="lamp"></i><div>' + (slipStale(s) ? '收盤（最後是' + SLIP_NAME[s.light] + '）' : SLIP_NAME[s.light]) +
-      '<small>' + esc(s.why) + '・' + (s.market === '0' ? '日盤' : '夜盤') + ' ' + slipHm(s.ms) + ' 更新</small></div></div></div>' : '';
+    const now = s ? '<div class="slip-sum lamp-' + slipLamp(s) + '"><div class="slip-big"><i class="lamp"></i><div>' + (slipStale(s) ? '收盤（最後是' + (SLIP_NAME[s.light] || '沒檔位') + '）' : slipName(s)) +
+      '<small>' + esc(s.why) + '・' + (s.market === '0' ? '日盤' : '夜盤') + ' ' + slipHm(s.ms) + ' 更新</small></div></div>' + slipOff(s) + '</div>' : '';
     $('slip-body').innerHTML = '<div class="slip-rules">' + now +
       '<dl>' +
-        '<dt>看哪幾檔</dt><dd>最近一期還沒結算的合約，台指期上下各取價外 Call、Put 12 檔。</dd>' +
-        '<dt>滑價</dt><dd>24 檔的（賣價 − 買價）÷ 中價取平均，跟「平常」比（平常 = 日盤、夜盤分開，最近 5 盤的中間值）。' +
-          '<ul><li class="lamp-g"><i class="lamp"></i><b>綠燈</b>平常的 1.5 倍以內</li>' +
-          '<li class="lamp-y"><i class="lamp"></i><b>黃燈</b>平常的 1.5～3 倍，或造市商只剩不到 2/3 檔</li>' +
-          '<li class="lamp-r"><i class="lamp"></i><b>紅燈</b>超過平常 3 倍；或造市商剩不到 1/3 檔；或一半以上的檔沒有買賣價</li></ul></dd>' +
-        '<dt>造市商還在</dt><dd>那一檔中價 10% 以內，買方、賣方各有 5 口以上。</dd>' +
+        '<dt>看哪幾檔</dt><dd>最近一期還沒結算的合約，權利金 10～200 點的 Call、Put 全部，看最佳買價、賣價和口數。</dd>' +
+        '<dt>價差用 tick 算</dt><dd>權利金 10～50 點一個 tick 是 0.5 點，50 點以上一個 tick 是 1 點；只有一邊有報價的檔當成價差很大。' +
+          '<ul><li class="lamp-g"><i class="lamp"></i><b>綠燈</b>價差超過 5 個 tick 的不超過 5 檔</li>' +
+          '<li class="lamp-y"><i class="lamp"></i><b>黃燈</b>價差超過 5 個 tick 的超過 5 檔</li>' +
+          '<li class="lamp-r"><i class="lamp"></i><b>紅燈</b>價差超過 10 個 tick 的有 5 檔以上</li></ul></dd>' +
+        '<dt><span class="slip-off">造市下班?</span></dt><dd>最佳買價、賣價都沒有超過 5 口的檔位，超過 5 檔就會出現。</dd>' +
         '<dt>30 秒一次</dt><dd>跟著行情每 30 秒更新；收盤後燈變灰，標出最後一次是什麼燈。</dd>' +
       '</dl></div>';
   }
