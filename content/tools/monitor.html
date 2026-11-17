@@ -107,6 +107,10 @@ button, input, select { font: inherit; color: inherit; }
 .mm-tbl .mm[aria-expanded="true"] { border-color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
 .mm-tbl .mm.no { border-color: var(--loss); background: color-mix(in srgb, #e5372a 8%, var(--white)); }
 .mm-tbl .mm b.cp-C { color: var(--call); } .mm-tbl .mm b.cp-P { color: var(--put); }
+.slip-tbl tr[data-mm] { cursor: pointer; }
+.slip-tbl tr[data-mm]:hover td, .slip-tbl tr[data-mm][aria-expanded="true"] td { box-shadow: inset 0 -2px 0 var(--ink); }
+.slip-tbl tr.mm-book-row td { padding: 4px 6px; background: var(--paper); white-space: normal; text-align: left; }
+.slip-tbl tr.mm-book-row .mm-book { position: sticky; left: 6px; max-width: min(420px, calc(100vw - 96px)); }
 .mm-book { margin: 2px 0 6px; padding: 8px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 10px; font-size: 13px; }
 .mm-book b.cp-C { color: var(--call); } .mm-book b.cp-P { color: var(--put); }
 .mm-book table { width: 100%; margin-top: 6px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -855,7 +859,7 @@ td.tog, .m-only { display: none; }
     const side = (pr, n) => pr > 0 ? pr + '<small> ×' + n + '</small>' : '<span class="mute">沒有</span>';
     const row = r => {
       const lv = r[6] === null || r[6] > 10 ? 'r' : r[6] > 5 ? 'y' : '';
-      return '<tr' + (lv ? ' class="w' + lv + '"' : '') + '><td class="cp-' + r[0] + '">' + r[1] + (r[0] === 'C' ? ' Call' : ' Put') + '</td><td>' + r[7] + '</td>' +
+      return '<tr' + (lv ? ' class="w' + lv + '"' : '') + ' data-mm="' + r[0] + r[1] + '" tabindex="0" role="button" aria-expanded="false"><td class="cp-' + r[0] + '">' + r[1] + (r[0] === 'C' ? ' Call' : ' Put') + '</td><td>' + r[7] + '</td>' +
         '<td>' + side(r[2], r[3]) + '</td><td>' + side(r[4], r[5]) + '</td><td>' + (r[6] === null ? '只有一邊' : r[6]) + '</td></tr>';
     };
     const table = rows => '<div class="scroll"><table class="pres-tbl slip-tbl"><thead><tr><th>履約價</th><th>權利金</th><th>買價 ×口</th><th>賣價 ×口</th><th>tick</th></tr></thead><tbody>' + rows.map(row).join('') + '</tbody></table></div>';
@@ -864,7 +868,8 @@ td.tog, .m-only { display: none; }
     const mm = s.mm || [], thinOf = r => !(r[2] > D && r[3] > D);
     // 左 Call、右 Put，都從價平往價外排；點一格看那一檔的五檔掛單
     slipMm = {};
-    mm.forEach(r => { slipMm[r[0] + r[1]] = r; });
+    s.list.forEach(r => { if (r[8]) slipMm[r[0] + r[1]] = { cp: r[0], k: r[1], b: r[8], a: r[9] }; });
+    mm.forEach(r => { slipMm[r[0] + r[1]] = { cp: r[0], k: r[1], b: r[4] || [], a: r[5] || [] }; });
     const cell = r => !r ? '<td></td>' : '<td><button type="button" class="mm' + (thinOf(r) ? ' no' : '') + '" data-mm="' + r[0] + r[1] + '" aria-expanded="false">' +
       '<b class="cp-' + r[0] + '">' + r[1] + '</b> 買' + r[2] + '／賣' + r[3] + '</button></td>';
     const calls = mm.filter(r => r[0] === 'C'), puts = mm.filter(r => r[0] === 'P');
@@ -880,28 +885,29 @@ td.tog, .m-only { display: none; }
         '<li class="' + (s.w5 > 5 ? 'hit' : '') + '">價差超過 5 tick：<b>' + s.w5 + '</b> 檔（超過 5 檔→黃燈）</li>' +
         (mm.length ? '<li class="' + (s.off ? 'hit' : '') + '">價平到價外 30 檔（' + s.mmN + ' 檔），五檔沒有都超過 ' + D + ' 口：<b>' + s.thin + '</b> 檔（超過 ' + N + ' 檔→注意：造市商可能下班？）</li>' : '') +
       '</ul>' +
-      (wide.length ? '<p class="slip-sub">價差超過 5 tick 的檔（紅底超過 10 tick、黃底 6～10 tick）</p>' + table(wide) : '<p class="slip-sub">沒有價差超過 5 tick 的檔。</p>') +
+      (wide.length ? '<p class="slip-sub">價差超過 5 tick 的檔（紅底超過 10 tick、黃底 6～10 tick）。點一列看五檔掛單。</p>' + table(wide) : '<p class="slip-sub">沒有價差超過 5 tick 的檔。</p>') +
       (rest.length ? '<details class="slip-more"><summary>其他 ' + rest.length + ' 檔（價差 5 tick 以內）</summary>' + table(rest) + '</details>' : '') +
       (mmBox ? '<details class="slip-more"' + (s.off ? ' open' : '') + '><summary>造市商：價平到價外 30 檔的五檔口數</summary>' + mmBox + '</details>' : '');
   }
   let slipMm = {};
-  function mmBook(r) {
-    const rows = [];
+  function mmBook(r, span) {
+    const rows = [], sum = l => l.reduce((n, x) => n + x[1], 0);
     for (let i = 0; i < 5; i++) {
-      const b = (r[4] || [])[i], a = (r[5] || [])[i];
+      const b = r.b[i], a = r.a[i];
       rows.push('<tr><td>' + (b ? b[1] : '') + '</td><td class="bid">' + (b ? b[0] : '–') + '</td><td class="ask">' + (a ? a[0] : '–') + '</td><td>' + (a ? a[1] : '') + '</td></tr>');
     }
-    return '<tr class="mm-book-row"><td colspan="2"><div class="mm-book"><b class="cp-' + r[0] + '">' + r[1] + (r[0] === 'C' ? ' Call' : ' Put') + '</b> 五檔掛單（買 ' + r[2] + ' 口／賣 ' + r[3] + ' 口）' +
+    return '<tr class="mm-book-row"><td colspan="' + span + '"><div class="mm-book"><b class="cp-' + r.cp + '">' + r.k + (r.cp === 'C' ? ' Call' : ' Put') + '</b> 五檔掛單（買 ' + sum(r.b) + ' 口／賣 ' + sum(r.a) + ' 口）' +
       '<table><thead><tr><th>口</th><th>買價</th><th>賣價</th><th>口</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div></td></tr>';
   }
-  function toggleMmBook(btn) {
-    const tr = btn.closest('tr'), key = btn.dataset.mm, open = btn.getAttribute('aria-expanded') === 'true';
+  // 點一格（造市商表）或一列（價差表）：在下面插一列五檔，再點一次收起來
+  function toggleMmBook(el) {
+    const tr = el.closest('tr'), key = el.dataset.mm, open = el.getAttribute('aria-expanded') === 'true';
     const next = tr.nextElementSibling;
     if (next && next.classList.contains('mm-book-row')) next.remove();
-    tr.querySelectorAll('[data-mm]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+    [tr].concat([...tr.querySelectorAll('[data-mm]')]).forEach(b => { if (b.dataset.mm) b.setAttribute('aria-expanded', 'false'); });
     if (open || !slipMm[key]) return;
-    tr.insertAdjacentHTML('afterend', mmBook(slipMm[key]));
-    btn.setAttribute('aria-expanded', 'true');
+    tr.insertAdjacentHTML('afterend', mmBook(slipMm[key], tr.children.length));
+    el.setAttribute('aria-expanded', 'true');
   }
   function renderSlipDlg() {
     const s = state.quote && state.quote.slip;
@@ -2354,6 +2360,9 @@ td.tog, .m-only { display: none; }
     if (e.target === e.currentTarget) { e.currentTarget.close(); return; }  // 點外面關掉
     const b = e.target.closest('[data-mm]');
     if (b) toggleMmBook(b);
+  });
+  $('slip-dlg').addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr[data-mm]')) { e.preventDefault(); toggleMmBook(e.target); }
   });
   $('pres-dlg').addEventListener('click', e => {
     if (e.target === e.currentTarget) { e.currentTarget.close(); return; }  // 點外面關掉
