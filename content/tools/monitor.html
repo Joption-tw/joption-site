@@ -61,6 +61,30 @@ button, input, select { font: inherit; color: inherit; }
 .pres-tbl td .mute, .pres-note { color: var(--muted); }
 .pres-note { margin: 10px 0 0; font-size: 12px; line-height: 1.6; }
 @media (max-width: 640px) { .pres-more { display: none; } }
+/* 滑價燈號：綠、黃、紅；收盤或太久沒更新是灰的 */
+.lamp-g { --lamp: #2fb36d; } .lamp-y { --lamp: #f5b800; } .lamp-r { --lamp: #e5372a; } .lamp-off { --lamp: #b9b4c7; }
+.lamp { display: inline-block; flex: none; width: 16px; height: 16px; border: 2px solid var(--ink); border-radius: 50%; background: var(--lamp); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lamp) 35%, transparent); vertical-align: -3px; }
+.lamp-r .lamp { animation: lampPulse 1.2s ease-in-out infinite; }
+@keyframes lampPulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--lamp) 0%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .lamp-r .lamp { animation: none; } }
+.slip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin-top: 6px; padding: 3px 12px 3px 6px; background: var(--white); border: 2px solid var(--ink); border-radius: 16px; box-shadow: 2px 2px 0 var(--ink); color: var(--ink); font: inherit; font-size: 13px; font-weight: 900; text-align: left; cursor: pointer; }
+.slip:hover { background: var(--sky); }
+.slip:active { transform: translate(2px, 2px); box-shadow: none; }
+.slip small { color: var(--muted); font-size: 12px; font-weight: 700; }
+.slip-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
+.slip-big { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 900; }
+.slip-big .lamp { width: 26px; height: 26px; }
+.slip-big small { display: block; color: var(--muted); font-size: 13px; font-weight: 700; }
+.slip-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.slip-facts li { padding: 2px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 99px; font-size: 13px; }
+.slip-facts b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.slip-tbl td.lvs { text-align: left; font-size: 12px; }
+.slip-tbl td.lvs span { margin-right: 6px; }
+.slip-tbl td.lvs span.far { color: var(--muted); opacity: .55; text-decoration: line-through; }
+.slip-tbl tr.no td { background: color-mix(in srgb, #e5372a 8%, var(--white)); }
+.slip-tbl td.cp-C { color: var(--call); font-weight: 900; } .slip-tbl td.cp-P { color: var(--put); font-weight: 900; }
+.ticker .lamp { margin-left: 4px; width: 12px; height: 12px; }
+#slip-dlg { width: min(1000px, calc(100vw - 32px)); }
 .pill b { font-family: var(--display); font-weight: 400; font-size: 15px; }
 /* 電腦版往下捲、行情帶看不到時，頂列放一排精簡行情 */
 .ticker { display: none; align-items: center; margin-left: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -420,6 +444,10 @@ td.tog, .m-only { display: none; }
   <div class="pres-head"><h3 id="pres-title">誰在線上</h3><button type="button" class="chip" id="pres-close" aria-label="關閉">✕</button></div>
   <div id="pres-body"></div>
 </dialog>
+<dialog class="pres-dlg" id="slip-dlg" aria-labelledby="slip-title">
+  <div class="pres-head"><h3 id="slip-title">滑價燈號</h3><button type="button" class="chip" id="slip-close" aria-label="關閉">✕</button></div>
+  <div id="slip-body"></div>
+</dialog>
 
 <div class="wrap" id="gate" hidden>
  <div class="gate-grid">
@@ -735,7 +763,7 @@ td.tog, .m-only { display: none; }
           (fut ? spark(fut.ticks.concat(fut.last), fut.ref, 'var(--ink)') : '') + '</div>' +
         // 期交所的漲跌是跟結算價比，不是收盤價：日盤比前一交易日的結算價，夜盤比當天日盤的結算價
         '<div class="mk-sub">' + (fut && fut.ref ? '漲跌是比' + (/-M$/.test(fut.symbol || '') ? '日盤' : '前一交易日') + '結算價 ' + int(fut.ref) : '') + '</div>' +
-        '<div class="mk-sub">' + (!q ? '讀取中' : mNow.weekend ? '週末不開盤，停在週五夜盤收盤 ' + stampText(new Date(mNow.ms)) : (/-M$/.test(fut ? fut.symbol : '') ? '夜盤' : '日盤') + '，期交所報價 ' + esc(q.at) + ' 取得') + '</div></div>' +
+        '<div class="mk-sub">' + (!q ? '讀取中' : mNow.weekend ? '週末不開盤，停在週五夜盤收盤 ' + stampText(new Date(mNow.ms)) : (/-M$/.test(fut ? fut.symbol : '') ? '夜盤' : '日盤') + '，期交所報價 ' + esc(q.at) + ' 取得') + '</div>' + slipPill(q && q.slip) + '</div>' +
       (nightSelf ?
       '<div class="mk"><h3><a href="#h-vix">波動率 VIX ›</a><small>夜盤自算</small></h3>' +
         '<div class="mk-row"><span class="mk-big">' + nightSelf.v.toFixed(2) + '</span>' + spark(nightPts.length > 1 ? nightPts : [nightSelf.v, nightSelf.v], vix ? vix.last : null, 'var(--coin-deep)') + '</div>' +
@@ -751,10 +779,64 @@ td.tog, .m-only { display: none; }
     $('ticker').innerHTML =
       '<a href="#h-tv"><small>時間價值</small><b>' + (last ? int(last.value) : '–') + '</b>' + tvChangeChip(first) + '</a>' +
       '<span><small>台指期</small><b>' + (fut ? fut.last.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '–') + '</b>' + (diff === null ? '' : '<em class="' + (dir ? dir + '-t' : '') + '">' + change(diff, lastDigits(diff)) + '（' + change(diff / fut.ref * 100, 2) + '%）</em>') + '</span>' +
+      (q && q.slip ? '<a href="#" data-slip-open class="lamp-' + slipLamp(q.slip) + '" title="滑價燈號，點開看每一檔"><small>滑價</small><i class="lamp"></i></a>' : '') +
       (nightSelf
         ? '<a href="#h-vix"><small>VIX 夜盤自算</small><b>' + nightSelf.v.toFixed(2) + '</b>' + (nightDiff === null ? '' : '<em class="' + (nightDiff > 0 ? 'up-t' : nightDiff < 0 ? 'down-t' : '') + '">' + change(nightDiff, 2) + '</em>') + '</a>'
         : '<a href="#h-vix"><small>VIX</small><b>' + (vix ? vix.last.toFixed(2) : '–') + '</b>' + (vixDiff === null ? '' : '<em class="' + (vixDiff > 0 ? 'up-t' : vixDiff < 0 ? 'down-t' : '') + '">' + change(vixDiff, 2) + '</em>') + '</a>');
   }
+
+  // 滑價燈號：伺服器跟行情一起 30 秒算一次；超過 3 分鐘沒更新（收盤、還沒開盤）就變灰，標最後一次是什麼燈
+  const SLIP_NAME = { g: '綠燈', y: '黃燈', r: '紅燈' };
+  function slipStale(s) { return !s || Date.now() - s.ms > 3 * 60000; }
+  function slipLamp(s) { return slipStale(s) ? 'off' : s.light; }
+  function slipHm(ms) { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+  function slipPill(s) {
+    if (!s) return '';
+    const stale = slipStale(s);
+    const what = stale ? '滑價 收盤' : '滑價 ' + SLIP_NAME[s.light];
+    const sub = stale ? '最後 ' + slipHm(s.ms) + ' 是' + SLIP_NAME[s.light]
+      : s.rel === null ? s.why : '價差 ' + s.pts + ' 點（' + (s.rel * 100).toFixed(1) + '%）・造市商 ' + s.mm + '/' + s.n + ' 檔';
+    return '<button type="button" class="slip lamp-' + slipLamp(s) + '" data-slip-open aria-label="滑價燈號：' + esc(what) + '，點開看每一檔"><i class="lamp"></i><span>' + what + ' <small>' + esc(sub) + '</small></span></button>';
+  }
+  function renderSlipDlg() {
+    const s = state.quote && state.quote.slip;
+    if (!s) { $('slip-body').innerHTML = '<div style="padding:16px">還沒有滑價資料，開盤後 30 秒內會出現。</div>'; return; }
+    const stale = slipStale(s), pct = v => (v * 100).toFixed(1) + '%';
+    const lvText = (list, mid, side) => list.map(l => {
+      const far = mid && (side === 'b' ? l[0] < mid * 0.9 : l[0] > mid * 1.1);
+      return '<span' + (far ? ' class="far" title="離中價超過 10%，不算在報價"' : '') + '>' + l[0] + '×' + l[1] + '</span>';
+    }).join('') || '–';
+    const rows = s.rows.map(r => {
+      const mid = r.rel !== undefined ? (r.b[0][0] + r.a[0][0]) / 2 : 0;
+      return '<tr' + (r.ok ? '' : ' class="no"') + '><td class="cp-' + r.cp + '">' + (r.cp === 'C' ? 'Call' : 'Put') + ' 價外' + r.lv + '</td><td>' + r.k + '</td>' +
+        '<td>' + (r.b[0] ? r.b[0][0] + ' <small>×' + r.b[0][1] + '</small>' : '–') + '</td><td>' + (r.a[0] ? r.a[0][0] + ' <small>×' + r.a[0][1] + '</small>' : '–') + '</td>' +
+        '<td>' + (r.sp === undefined ? '–' : r.sp) + '</td><td>' + (r.rel === undefined ? '–' : pct(r.rel)) + '</td>' +
+        '<td>' + (r.db === undefined ? '–' : r.db + ' / ' + r.da) + '</td>' +
+        '<td class="lvs">買 ' + lvText(r.b, mid, 'b') + '<br>賣 ' + lvText(r.a, mid, 'a') + '</td></tr>';
+    }).join('');
+    $('slip-body').innerHTML = '<div style="padding:14px 16px 16px">' +
+      '<div class="slip-sum lamp-' + slipLamp(s) + '"><div class="slip-big"><i class="lamp"></i><div>' + (stale ? '收盤（最後是' + SLIP_NAME[s.light] + '）' : SLIP_NAME[s.light]) + '<small>' + esc(s.why) + '・' + (s.market === '0' ? '日盤' : '夜盤') + ' ' + slipHm(s.ms) + ' 更新</small></div></div></div>' +
+      '<ul class="slip-facts">' +
+        '<li>看的這期<b>' + esc(s.code) + '（' + esc(s.settle) + ' 結算）</b></li>' +
+        '<li>台指期<b>' + int(s.F) + '</b></li>' +
+        '<li>平均價差<b>' + (s.pts === null ? '–' : s.pts + ' 點（' + pct(s.rel) + '）') + '</b></li>' +
+        '<li>平常<b>' + pct(s.base) + (s.baseDays ? '（最近 ' + s.baseDays + ' 盤）' : '（還在累積，先用 6%）') + '</b></li>' +
+        (s.rel === null ? '' : '<li>是平常的<b>' + (s.rel / s.base).toFixed(1) + ' 倍</b></li>') +
+        '<li>造市商還在<b>' + s.mm + ' / ' + s.n + ' 檔</b></li>' +
+        '<li>有買賣價<b>' + s.quoted + ' / ' + s.n + ' 檔</b></li>' +
+      '</ul>' +
+      '<div class="scroll"><table class="pres-tbl slip-tbl"><thead><tr><th>檔位</th><th>履約價</th><th>買價</th><th>賣價</th><th>價差</th><th>價差%</th><th>10% 內口數<br>買 / 賣</th><th>五檔（價×口）</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="pres-note">看最近一期還沒結算的合約，台指期上下最近的價外 Call、Put 各 12 檔，每 30 秒問一次期交所。<br>' +
+      '價差% = (賣價 − 買價) ÷ 中價，24 檔平均後跟「平常」比：1.5 倍內綠燈、1.5～3 倍黃燈、超過 3 倍紅燈。平常 = 同一種盤（日盤、夜盤分開）最近 5 盤的中位數。<br>' +
+      '造市商在不在：中價 10% 以內買方、賣方各有 5 口以上才算（劃掉的是離中價太遠的佔位單）；剩不到 1/3 檔，或一半以上的檔沒有買賣價，直接紅燈；不到 2/3 檔是黃燈。淡紅底的那幾檔就是造市商不在。</p>' +
+      '</div>';
+  }
+  document.addEventListener('click', e => {
+    if (!e.target.closest('[data-slip-open]')) return;
+    e.preventDefault();
+    renderSlipDlg();
+    $('slip-dlg').showModal();
+  });
 
   // 行情比較快：頁面 30 秒問一次，伺服器也只 30 秒問期交所一次
   let quoteBusy = false, lastQuote = 0;
@@ -774,6 +856,7 @@ td.tog, .m-only { display: none; }
       if (res.ok && res.quote) {
         state.quote = res.quote;
         if (state.data) renderMarket(state.data);
+        if ($('slip-dlg').open) renderSlipDlg();
       }
     } catch (e) { /* 下次再問，畫面留著上一筆 */ }
     quoteBusy = false;
@@ -2173,6 +2256,8 @@ td.tog, .m-only { display: none; }
   });
   $('presence').addEventListener('click', () => { if (!state.presence) return; renderPresDlg(); $('pres-dlg').showModal(); });
   $('pres-close').addEventListener('click', () => $('pres-dlg').close());
+  $('slip-close').addEventListener('click', () => $('slip-dlg').close());
+  $('slip-dlg').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });  // 點外面關掉
   $('pres-dlg').addEventListener('click', e => {
     if (e.target === e.currentTarget) { e.currentTarget.close(); return; }  // 點外面關掉
     const s = e.target.closest('[data-ps]'), r = e.target.closest('[data-pe]');
