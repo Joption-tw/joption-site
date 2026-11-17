@@ -817,7 +817,7 @@ td.tog, .m-only { display: none; }
   function slipLamp(s) { return slipStale(s) || !s.light ? 'off' : s.light; }
   function slipHm(ms) { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
   function slipName(s) { return !s ? '沒資料' : slipStale(s) ? '收盤' : SLIP_NAME[s.light] || '沒檔位'; }
-  // 造市商下班?：最佳買賣價都沒超過 5 口的檔位超過 5 檔（收盤後不顯示）
+  // 造市商下班?：買價五檔、賣價五檔口數加起來沒有都超過 10 口的檔，超過 5 檔（收盤後不顯示）
   function slipOff(s) { return s && !slipStale(s) && s.off ? '<span class="slip-off">造市商下班?</span>' : ''; }
   function slipCell(s) {
     const sub = !s ? '開盤後 30 秒內出現' : slipStale(s) ? '最後 ' + slipHm(s.ms) + ' 是' + (SLIP_NAME[s.light] || '沒檔位') : s.why + '・' + slipHm(s.ms).split(' ')[1];
@@ -828,23 +828,24 @@ td.tog, .m-only { display: none; }
   // 這次的理由：每檔的買賣價、口數、差幾個 tick，看判斷合不合理
   function slipReason(s) {
     if (!s || !s.list) return '';
-    const thinOf = r => !(r[3] > 5) && !(r[5] > 5);
+    const D = s.depthLot || 10, hasDepth = r => r[8] !== undefined;
+    const thinOf = r => hasDepth(r) ? !(r[8] > D && r[9] > D) : !(r[3] > 5) && !(r[5] > 5);
     const wideOf = r => r[6] === null || r[6] > 5;
     const side = (pr, n) => pr > 0 ? pr + '<small> ×' + n + '</small>' : '<span class="mute">沒有</span>';
     const row = r => {
       const lv = r[6] === null || r[6] > 10 ? 'r' : r[6] > 5 ? 'y' : '';
       return '<tr' + (lv ? ' class="w' + lv + '"' : '') + '><td class="cp-' + r[0] + '">' + r[1] + (r[0] === 'C' ? ' Call' : ' Put') + '</td><td>' + r[7] + '</td>' +
         '<td>' + side(r[2], r[3]) + '</td><td>' + side(r[4], r[5]) + '</td>' +
-        '<td>' + (r[6] === null ? '只有一邊' : r[6]) + '</td><td>' + (thinOf(r) ? '<span class="thin">都沒超過 5 口</span>' : '') + '</td></tr>';
+        '<td>' + (r[6] === null ? '只有一邊' : r[6]) + '</td><td>' + (hasDepth(r) ? '買 ' + r[8] + '／賣 ' + r[9] : '') + (thinOf(r) ? ' <span class="thin">沒都超過 ' + D + ' 口</span>' : '') + '</td></tr>';
     };
-    const table = rows => '<div class="scroll"><table class="pres-tbl slip-tbl"><thead><tr><th>履約價</th><th>權利金</th><th>買價 ×口</th><th>賣價 ×口</th><th>tick</th><th>口數</th></tr></thead><tbody>' + rows.map(row).join('') + '</tbody></table></div>';
+    const table = rows => '<div class="scroll"><table class="pres-tbl slip-tbl"><thead><tr><th>履約價</th><th>權利金</th><th>買價 ×口</th><th>賣價 ×口</th><th>tick</th><th>五檔口數</th></tr></thead><tbody>' + rows.map(row).join('') + '</tbody></table></div>';
     const wide = s.list.filter(wideOf), rest = s.list.filter(r => !wideOf(r));
     return '<h4 class="slip-h">這次的理由（' + esc(s.code) + '，' + esc(s.settle) + ' 結算）</h4>' +
       '<ul class="slip-count">' +
         '<li>算進來的權利金 10～200 點：<b>' + s.n + '</b> 檔</li>' +
         '<li class="' + (s.w10 >= 5 ? 'hit' : '') + '">價差超過 10 tick：<b>' + s.w10 + '</b> 檔（5 檔以上→紅燈）</li>' +
         '<li class="' + (s.w5 > 5 ? 'hit' : '') + '">價差超過 5 tick：<b>' + s.w5 + '</b> 檔（超過 5 檔→黃燈）</li>' +
-        '<li class="' + (s.thin > 5 ? 'hit' : '') + '">買價、賣價都沒超過 5 口：<b>' + s.thin + '</b> 檔（超過 5 檔→造市商下班?）</li>' +
+        '<li class="' + (s.thin > 5 ? 'hit' : '') + '">買價五檔、賣價五檔沒有都超過 ' + D + ' 口：<b>' + s.thin + '</b> 檔（超過 5 檔→造市商下班?）</li>' +
       '</ul>' +
       (wide.length ? '<p class="slip-sub">價差超過 5 tick 的檔（紅底超過 10 tick、黃底 6～10 tick）</p>' + table(wide) : '<p class="slip-sub">沒有價差超過 5 tick 的檔。</p>') +
       (rest.length ? '<details class="slip-more"><summary>其他 ' + rest.length + ' 檔（價差 5 tick 以內）</summary>' + table(rest) + '</details>' : '');
@@ -860,7 +861,7 @@ td.tog, .m-only { display: none; }
           '<ul><li class="lamp-g"><i class="lamp"></i><b>綠燈</b>價差超過 5 個 tick 的不超過 5 檔</li>' +
           '<li class="lamp-y"><i class="lamp"></i><b>黃燈</b>價差超過 5 個 tick 的超過 5 檔</li>' +
           '<li class="lamp-r"><i class="lamp"></i><b>紅燈</b>價差超過 10 個 tick 的有 5 檔以上</li></ul></dd>' +
-        '<dt><span class="slip-off">造市商下班?</span></dt><dd>最佳買價、賣價都沒有超過 5 口的檔位，超過 5 檔就會出現。</dd>' +
+        '<dt><span class="slip-off">造市商下班?</span></dt><dd>每一檔的買價五檔、賣價五檔，口數加起來都要超過 10 口才算造市商在；沒做到的檔超過 5 檔就會出現。</dd>' +
         '<dt>30 秒一次</dt><dd>跟著行情每 30 秒更新；收盤後燈變灰，標出最後一次是什麼燈。</dd>' +
       '</dl></div>';
   }
