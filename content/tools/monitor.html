@@ -98,6 +98,20 @@ button, input, select { font: inherit; color: inherit; }
 .slip-tbl .thin { font-size: 12px; color: var(--muted); }
 .slip-more { margin-top: 8px; }
 .slip-more summary { cursor: pointer; font-weight: 700; font-size: 13px; }
+.mm-tbl { width: 100%; border-collapse: separate; border-spacing: 4px 3px; margin: 2px -4px 6px; }
+.mm-tbl th { position: static; padding: 2px 4px; background: none; border: 0; text-align: left; font-size: 13px; }
+.mm-book th { position: static; background: var(--kraft); border-bottom: 1px solid var(--line); }
+.mm-tbl td { padding: 0; vertical-align: top; }
+.mm-tbl .mm { display: block; width: 100%; padding: 3px 8px; background: var(--white); border: 1.5px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; text-align: left; white-space: nowrap; cursor: pointer; }
+.mm-tbl .mm:hover { border-color: var(--ink); }
+.mm-tbl .mm[aria-expanded="true"] { border-color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+.mm-tbl .mm.no { border-color: var(--loss); background: color-mix(in srgb, #e5372a 8%, var(--white)); }
+.mm-tbl .mm b.cp-C { color: var(--call); } .mm-tbl .mm b.cp-P { color: var(--put); }
+.mm-book { margin: 2px 0 6px; padding: 8px 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 10px; font-size: 13px; }
+.mm-book b.cp-C { color: var(--call); } .mm-book b.cp-P { color: var(--put); }
+.mm-book table { width: 100%; margin-top: 6px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.mm-book th, .mm-book td { padding: 2px 6px; border-bottom: 1px solid var(--line); text-align: center; font-size: 13px; }
+.mm-book td.bid, .mm-book td.ask { font-weight: 700; }
 .mm-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }
 .mm-list .mm { padding: 1px 7px; background: var(--white); border: 1.5px solid var(--line); border-radius: 8px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mm-list .mm.no { border-color: var(--loss); background: color-mix(in srgb, #e5372a 8%, var(--white)); }
@@ -848,11 +862,17 @@ td.tog, .m-only { display: none; }
     const wide = s.list.filter(wideOf), rest = s.list.filter(r => !wideOf(r));
     // 造市商：價平到價外 30 檔的五檔口數
     const mm = s.mm || [], thinOf = r => !(r[2] > D && r[3] > D);
-    const chip = r => '<span class="mm' + (thinOf(r) ? ' no' : '') + '"><b class="cp-' + r[0] + '">' + r[1] + (r[0] === 'C' ? 'C' : 'P') + '</b> 買' + r[2] + '／賣' + r[3] + '</span>';
+    // 左 Call、右 Put，都從價平往價外排；點一格看那一檔的五檔掛單
+    slipMm = {};
+    mm.forEach(r => { slipMm[r[0] + r[1]] = r; });
+    const cell = r => !r ? '<td></td>' : '<td><button type="button" class="mm' + (thinOf(r) ? ' no' : '') + '" data-mm="' + r[0] + r[1] + '" aria-expanded="false">' +
+      '<b class="cp-' + r[0] + '">' + r[1] + '</b> 買' + r[2] + '／賣' + r[3] + '</button></td>';
+    const calls = mm.filter(r => r[0] === 'C'), puts = mm.filter(r => r[0] === 'P');
+    let pairs = '';
+    for (let i = 0; i < Math.max(calls.length, puts.length); i++) pairs += '<tr>' + cell(calls[i]) + cell(puts[i]) + '</tr>';
     const mmBox = !mm.length ? '' :
-      '<p class="slip-sub">價平（' + s.atm + '）到價外 30 檔，五檔口數（紅框是沒有都超過 ' + D + ' 口）</p>' +
-      '<div class="mm-list">' + mm.filter(r => r[0] === 'C').map(chip).join('') + '</div>' +
-      '<div class="mm-list">' + mm.filter(r => r[0] === 'P').map(chip).join('') + '</div>';
+      '<p class="slip-sub">價平（' + s.atm + '）到價外 30 檔，五檔口數加起來（紅框是沒有都超過 ' + D + ' 口）。點一格看五檔掛單。</p>' +
+      '<table class="mm-tbl"><thead><tr><th class="call-t">Call</th><th class="put-t">Put</th></tr></thead><tbody>' + pairs + '</tbody></table>';
     return '<h4 class="slip-h">這次的理由（' + esc(s.code) + '，' + esc(s.settle) + ' 結算）</h4>' +
       '<ul class="slip-count">' +
         '<li>算進來的權利金 10～200 點：<b>' + s.n + '</b> 檔</li>' +
@@ -864,8 +884,31 @@ td.tog, .m-only { display: none; }
       (rest.length ? '<details class="slip-more"><summary>其他 ' + rest.length + ' 檔（價差 5 tick 以內）</summary>' + table(rest) + '</details>' : '') +
       (mmBox ? '<details class="slip-more"' + (s.off ? ' open' : '') + '><summary>造市商：價平到價外 30 檔的五檔口數</summary>' + mmBox + '</details>' : '');
   }
+  let slipMm = {};
+  function mmBook(r) {
+    const rows = [];
+    for (let i = 0; i < 5; i++) {
+      const b = (r[4] || [])[i], a = (r[5] || [])[i];
+      rows.push('<tr><td>' + (b ? b[1] : '') + '</td><td class="bid">' + (b ? b[0] : '–') + '</td><td class="ask">' + (a ? a[0] : '–') + '</td><td>' + (a ? a[1] : '') + '</td></tr>');
+    }
+    return '<tr class="mm-book-row"><td colspan="2"><div class="mm-book"><b class="cp-' + r[0] + '">' + r[1] + (r[0] === 'C' ? ' Call' : ' Put') + '</b> 五檔掛單（買 ' + r[2] + ' 口／賣 ' + r[3] + ' 口）' +
+      '<table><thead><tr><th>口</th><th>買價</th><th>賣價</th><th>口</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div></td></tr>';
+  }
+  function toggleMmBook(btn) {
+    const tr = btn.closest('tr'), key = btn.dataset.mm, open = btn.getAttribute('aria-expanded') === 'true';
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('mm-book-row')) next.remove();
+    tr.querySelectorAll('[data-mm]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+    if (open || !slipMm[key]) return;
+    tr.insertAdjacentHTML('afterend', mmBook(slipMm[key]));
+    btn.setAttribute('aria-expanded', 'true');
+  }
   function renderSlipDlg() {
     const s = state.quote && state.quote.slip;
+    // 30 秒更新時，記住展開的區塊和正在看的五檔，重畫後還原
+    const body = $('slip-body');
+    const wasOpen = [...body.querySelectorAll('details')].map(d => d.open);
+    const book = body.querySelector('[data-mm][aria-expanded="true"]'), bookKey = book ? book.dataset.mm : null;
     const now = s ? '<div class="slip-sum lamp-' + slipLamp(s) + '"><div class="slip-big"><i class="lamp"></i><div>' + (slipStale(s) ? '收盤（最後是' + (SLIP_NAME[s.light] || '沒檔位') + '）' : slipName(s)) +
       '<small>' + esc(s.why) + '・' + (s.market === '0' ? '日盤' : '夜盤') + ' ' + slipHm(s.ms) + ' 更新</small></div></div>' + slipOff(s) + '</div>' : '';
     $('slip-body').innerHTML = '<div class="slip-rules">' + now + slipReason(s) +
@@ -878,6 +921,8 @@ td.tog, .m-only { display: none; }
         '<dt><span class="slip-off still">注意：造市商可能下班？</span></dt><dd><b>Call、Put 價平至價外 30 檔</b>（各 30 檔，共 60 檔），每一檔的買價五檔、賣價五檔，口數加起來都要超過 8 口才算造市商在；沒做到的超過 10 檔就會出現。</dd>' +
         '<dt>30 秒一次</dt><dd>跟著行情每 30 秒更新；收盤後燈變灰，標出最後一次是什麼燈。</dd>' +
       '</dl></div>';
+    if (wasOpen.length) body.querySelectorAll('details').forEach((d, i) => { if (wasOpen[i] !== undefined) d.open = wasOpen[i]; });
+    if (bookKey) { const b = body.querySelector('[data-mm="' + bookKey + '"]'); if (b) toggleMmBook(b); }
   }
   document.addEventListener('click', e => {
     if (!e.target.closest('[data-slip-open]')) return;
@@ -2305,7 +2350,11 @@ td.tog, .m-only { display: none; }
   $('presence').addEventListener('click', () => { if (!state.presence) return; renderPresDlg(); $('pres-dlg').showModal(); });
   $('pres-close').addEventListener('click', () => $('pres-dlg').close());
   $('slip-close').addEventListener('click', () => $('slip-dlg').close());
-  $('slip-dlg').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });  // 點外面關掉
+  $('slip-dlg').addEventListener('click', e => {
+    if (e.target === e.currentTarget) { e.currentTarget.close(); return; }  // 點外面關掉
+    const b = e.target.closest('[data-mm]');
+    if (b) toggleMmBook(b);
+  });
   $('pres-dlg').addEventListener('click', e => {
     if (e.target === e.currentTarget) { e.currentTarget.close(); return; }  // 點外面關掉
     const s = e.target.closest('[data-ps]'), r = e.target.closest('[data-pe]');
