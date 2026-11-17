@@ -806,8 +806,8 @@ td.tog, .m-only { display: none; }
   function slipLamp(s) { return slipStale(s) || !s.light ? 'off' : s.light; }
   function slipHm(ms) { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
   function slipName(s) { return !s ? '沒資料' : slipStale(s) ? '收盤' : SLIP_NAME[s.light] || '沒檔位'; }
-  // 造市下班?：最佳買賣價都沒超過 5 口的檔位超過 5 檔（收盤後不顯示）
-  function slipOff(s) { return s && !slipStale(s) && s.off ? '<span class="slip-off">造市下班?</span>' : ''; }
+  // 造市商下班?：最佳買賣價都沒超過 5 口的檔位超過 5 檔（收盤後不顯示）
+  function slipOff(s) { return s && !slipStale(s) && s.off ? '<span class="slip-off">造市商下班?</span>' : ''; }
   function slipCell(s) {
     const sub = !s ? '開盤後 30 秒內出現' : slipStale(s) ? '最後 ' + slipHm(s.ms) + ' 是' + (SLIP_NAME[s.light] || '沒檔位') : s.why + '・' + slipHm(s.ms).split(' ')[1];
     return '<button type="button" class="mk mk-slip lamp-' + slipLamp(s) + '" data-slip-open aria-label="滑價紅綠燈：' + slipName(s) + '，點我看規則">' +
@@ -825,7 +825,7 @@ td.tog, .m-only { display: none; }
           '<ul><li class="lamp-g"><i class="lamp"></i><b>綠燈</b>價差超過 5 個 tick 的不超過 5 檔</li>' +
           '<li class="lamp-y"><i class="lamp"></i><b>黃燈</b>價差超過 5 個 tick 的超過 5 檔</li>' +
           '<li class="lamp-r"><i class="lamp"></i><b>紅燈</b>價差超過 10 個 tick 的有 5 檔以上</li></ul></dd>' +
-        '<dt><span class="slip-off">造市下班?</span></dt><dd>最佳買價、賣價都沒有超過 5 口的檔位，超過 5 檔就會出現。</dd>' +
+        '<dt><span class="slip-off">造市商下班?</span></dt><dd>最佳買價、賣價都沒有超過 5 口的檔位，超過 5 檔就會出現。</dd>' +
         '<dt>30 秒一次</dt><dd>跟著行情每 30 秒更新；收盤後燈變灰，標出最後一次是什麼燈。</dd>' +
       '</dl></div>';
   }
