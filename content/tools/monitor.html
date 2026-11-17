@@ -857,7 +857,7 @@ td.tog, .m-only { display: none; }
     $('slip-body').innerHTML = '<div class="slip-rules">' + now + slipReason(s) +
       '<h4 class="slip-h">規則</h4><dl>' +
         '<dt>看哪幾檔</dt><dd>最近一期還沒結算的合約，權利金 10～200 點的 Call、Put 全部，看最佳買價、賣價和口數。</dd>' +
-        '<dt>價差用 tick 算</dt><dd>權利金 10～50 點一個 tick 是 0.5 點，50 點以上一個 tick 是 1 點；只有一邊有報價的檔當成價差很大。' +
+        '<dt>價差用 tick 算</dt><dd>算買價和賣價中間空幾個 tick，例如買 90、賣 96 是 5 tick。權利金 10～50 點一個 tick 是 0.5 點，50 點以上一個 tick 是 1 點；只有一邊有報價的檔當成價差很大。' +
           '<ul><li class="lamp-g"><i class="lamp"></i><b>綠燈</b>價差超過 5 個 tick 的不超過 5 檔</li>' +
           '<li class="lamp-y"><i class="lamp"></i><b>黃燈</b>價差超過 5 個 tick 的超過 5 檔</li>' +
           '<li class="lamp-r"><i class="lamp"></i><b>紅燈</b>價差超過 10 個 tick 的有 5 檔以上</li></ul></dd>' +
