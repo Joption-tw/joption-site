@@ -603,8 +603,10 @@ td.tog, .m-only { display: none; }
   <section aria-labelledby="h-vix">
     <div class="head">
       <h2 id="h-vix">VIX 波動率</h2>
+      <div class="tools"><button class="btn" id="vix-erase-toggle" aria-pressed="false" hidden>橡皮擦</button></div>
       <p>臺指選擇權波動率指數。日盤是期交所公布的 VIX；期交所夜盤不公布，每天左邊淺色那段夜盤是照期交所的公式自己算的，每 2 分鐘一筆；日盤也一起算一條金色虛線，跟期交所比對。</p>
     </div>
+    <div class="erase-bar" id="vix-erase-bar" hidden></div>
     <div class="card">
       <div class="vix-stats num" id="vix-stats"></div>
       <div class="chart" id="vix-chart"></div>
@@ -1512,6 +1514,27 @@ td.tog, .m-only { display: none; }
     bar.innerHTML = html;
   }
 
+  function renderVixEraseBar() {
+    const bar = $('vix-erase-bar');
+    bar.hidden = !state.vixEraseOn;
+    if (bar.hidden) return;
+    const line = state.vixEraseLine || 'VIX期交所', p = state.vixErasePending;
+    const hm = ms => { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+    let html = '<label for="vix-erase-line">要擦哪條線</label><select class="btn" id="vix-erase-line">' + VIX_LINES.map(l => '<option value="' + l[0] + '"' + (l[0] === line ? ' selected' : '') + '>' + l[1] + '</option>').join('') + '</select>';
+    if (!p) html += '<span>在圖上拖一個框，框住不合理的點。</span>';
+    else if (!p.count) html += '<span>這個框裡沒有這條線的點，再框一次。</span>';
+    else html += '<span>擦掉 <b>' + p.count + '</b> 個點（' + hm(p.from) + (p.to > p.from ? '～' + hm(p.to) : '') + '）？</span><button class="btn do" id="vix-erase-do">擦掉</button><button class="btn" id="vix-erase-cancel">取消</button>';
+    html += '<button class="btn" id="vix-erase-undo"' + (state.vixErasedCount ? '' : ' disabled') + '>復原上一步</button>';
+    bar.innerHTML = html;
+  }
+  async function vixEraseSend(body) {
+    body.token = getToken();
+    const res = await api(body);
+    if (!res.ok) { $('vix-erase-bar').insertAdjacentHTML('beforeend', '<span class="loss">沒有擦成功，可能沒有權限或連不上。</span>'); return false; }
+    state.vixErasePending = null;
+    await load(true);
+    return true;
+  }
   async function eraseSend(body) {
     body.token = getToken();
     const res = await api(body);
@@ -1554,12 +1577,23 @@ td.tog, .m-only { display: none; }
     for (; out.length < VIX_DAYS; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)) if (d.getDay() > 0 && d.getDay() < 6) out.push(d);
     return out.reverse();
   }
+  // VIX 橡皮擦：伺服器送來擦掉的範圍，畫圖和算最高最低前都先拿掉
+  const VIX_LINES = [['VIX期交所', '期交所 VIX（日盤）'], ['VIX夜盤自算', '自算（夜盤）'], ['VIX日盤自算', '自算（日盤，比對用）']];
+  function vixKeep(line, ms, val) {
+    const er = (state.data && state.data.vix && state.data.vix.erased) || [];
+    return !er.some(e => e[0] === line && ms >= e[1] && ms <= e[2] && val >= e[3] && val <= e[4]);
+  }
+  function vixMs(text) {
+    const t = String(text).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+    return t ? new Date(+t[1], t[2] - 1, +t[3], t[4] ? +t[4] : 13, t[4] ? +t[5] : 45).getTime() : null;
+  }
   function renderVix(v) {
     const box = $('vix-chart'), stats = $('vix-stats');
     if (!v || !v.daily.length) { stats.innerHTML = ''; box.innerHTML = '<div class="empty">還沒有 VIX 資料。程式裝好後會先補近 3 個月的收盤。</div>'; return; }
-    const vals = v.daily.map(p => p[1]);
+    const okRow = r => { const ms = vixMs(r[0]); return ms === null || vixKeep('VIX期交所', ms, +r[1]); };
+    const vals = v.daily.filter(okRow).map(p => p[1]);
     // 最高最低要算盤中，不能只看收盤（11/6 盤中衝到 58 多，收盤才 46.52）
-    const all = vals.concat((v.ticks || []).map(r => +r[1]), (state.vixToday || []).map(r => +r[1])).filter(x => x > 0);
+    const all = vals.concat((v.ticks || []).filter(okRow).map(r => +r[1]), (state.vixToday || []).filter(okRow).map(r => +r[1])).filter(x => x > 0);
     const hi = Math.max.apply(null, all), lo = Math.min.apply(null, all);
     const now = (state.quote && state.quote.vix && state.quote.vix.last) || (v.live ? v.live.v : vals[vals.length - 1]);
     const below = vals.filter(x => x < now).length;
@@ -1585,8 +1619,8 @@ td.tog, .m-only { display: none; }
       const i = keys.indexOf(day.toDateString());
       return i < 0 ? null : i + frac;
     };
-    const nPts = nightAll.map(q => ({ p: at(q.ms), v: q.v, ms: q.ms, night: true })).filter(q => q.p !== null);
-    const dPts = dayAll.map(q => ({ p: at(q.ms), v: q.v, ms: q.ms })).filter(q => q.p !== null);  // 日盤自算，比對用
+    const nPts = nightAll.filter(q => vixKeep('VIX夜盤自算', q.ms, q.v)).map(q => ({ p: at(q.ms), v: q.v, ms: q.ms, night: true })).filter(q => q.p !== null);
+    const dPts = dayAll.filter(q => vixKeep('VIX日盤自算', q.ms, q.v)).map(q => ({ p: at(q.ms), v: q.v, ms: q.ms })).filter(q => q.p !== null);  // 日盤自算，比對用
     const pts = [];
     // 今天用每分鐘的紀錄，昨天以前用試算表的 15 分鐘紀錄
     const dayKey = text => { const t = String(text).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/); return t ? +t[1] * 10000 + +t[2] * 100 + +t[3] : 0; };  // 試算表的日期可能沒補零
@@ -1597,12 +1631,12 @@ td.tog, .m-only { display: none; }
       if (!t) return;
       const ms = new Date(+t[1], t[2] - 1, +t[3], t[4] ? +t[4] : 13, t[4] ? +t[5] : 45).getTime();
       const p = at(ms);
-      if (p !== null) pts.push({ p: p, v: +r[1], ms: ms });
+      if (p !== null && vixKeep('VIX期交所', ms, +r[1])) pts.push({ p: p, v: +r[1], ms: ms });
     });
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
     if (state.quote && state.quote.vix && state.quote.vix.last && nowMin >= DAY_OPEN && nowMin <= DAY_CLOSE) {  // 期交所的即時值只在日盤加點，夜盤時它還是日盤收盤值
       const p = at(Date.now());
-      if (p !== null && (!pts.length || p > pts[pts.length - 1].p)) pts.push({ p: p, v: state.quote.vix.last, ms: Date.now() });
+      if (p !== null && (!pts.length || p > pts[pts.length - 1].p) && vixKeep('VIX期交所', Date.now(), state.quote.vix.last)) pts.push({ p: p, v: state.quote.vix.last, ms: Date.now() });
     }
     pts.sort((p, q) => p.p - q.p);
     if (!pts.length) { box.innerHTML = '<div class="empty">這 10 天還沒有 VIX 資料，日盤開盤後每 15 分鐘會多一點。</div>'; return; }
@@ -1713,6 +1747,7 @@ td.tog, .m-only { display: none; }
       tag(last, 'var(--indigo)', 'var(--indigo)', last.v.toFixed(2), false);
       if (nl && nl.ms > last.ms) tag(nl, 'var(--coin-deep)', 'var(--ink)', '夜 ' + nl.v.toFixed(2), true);  // 夜盤進行中：自算的最後一點也標出來
       svg += '<line id="vix-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/>';
+      svg += '<rect id="vix-erase-rect" fill="var(--coin)" fill-opacity=".35" stroke="var(--ink)" stroke-dasharray="4 3" visibility="hidden"/>';
       const zoomed = span < VIX_DAYS || view.y0 !== null;
       const key = '<span><i style="--c:var(--indigo)"></i>期交所 VIX（日盤）</span><span><i style="--c:var(--coin-deep)"></i>自算（夜盤）</span><span><i class="dash" style="--c:var(--coin-deep)"></i>自算（日盤，比對用）</span>' +
         '<div class="vix-zoom" title="滾輪縮放時間；Shift＋滾輪或在左邊數字上滾輪縮放 VIX；拖曳移動；雙擊還原">' +
@@ -1728,7 +1763,8 @@ td.tog, .m-only { display: none; }
       }
       const el = $('vix-svg');
       el.setAttribute('viewBox', '0 0 ' + W + ' ' + H); el.setAttribute('width', W); el.setAttribute('height', H);
-      el.classList.toggle('pan', span < VIX_DAYS || view.y0 !== null);
+      el.classList.toggle('pan', !state.vixEraseOn && (span < VIX_DAYS || view.y0 !== null));
+      el.style.touchAction = state.vixEraseOn ? 'none' : '';
       el.innerHTML = svg;
       $('vix-key').innerHTML = key;
       box.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', () => {
@@ -1770,6 +1806,7 @@ td.tog, .m-only { display: none; }
       // 拖曳平移：左右移時間，縱軸放大過才上下移
       on.pointerdown = e => {
         if (e.button !== 0) return;
+        if (state.vixEraseOn) { vixEraseDrag(e); return; }
         const r = el.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
         const a0 = view.x0, w = view.x1 - view.x0, lo = yLo, hi = yHi, manualY = view.y0 !== null;
         let moved = false;
@@ -1788,6 +1825,35 @@ td.tog, .m-only { display: none; }
         window.addEventListener('pointercancel', end);
       };
       on.dblclick = reset;
+      // 橡皮擦：拖一個框，框到要擦那條線的點
+      const vixEraseDrag = e => {
+        const rect = $('vix-erase-rect'), r = el.getBoundingClientRect();
+        const pos = ev => ({ x: (ev.clientX - r.left) / r.width * W, y: (ev.clientY - r.top) / r.height * H });
+        const cx = v2 => Math.max(m.l, Math.min(W - m.r, v2)), cy = v2 => Math.max(m.t, Math.min(H - m.b, v2));
+        const s0 = pos(e);
+        state.vixErasePending = null; renderVixEraseBar();
+        const move = ev => {
+          const q = pos(ev);
+          rect.setAttribute('x', cx(Math.min(s0.x, q.x))); rect.setAttribute('y', cy(Math.min(s0.y, q.y)));
+          rect.setAttribute('width', Math.abs(cx(q.x) - cx(s0.x))); rect.setAttribute('height', Math.abs(cy(q.y) - cy(s0.y)));
+          rect.setAttribute('visibility', 'visible');
+        };
+        const end = ev => {
+          window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+          const q = pos(ev), valOf = py => yLo + (1 - (cy(py) - m.t) / plotH) * (yHi - yLo);
+          const pa = pAt(Math.min(s0.x, q.x)), pb = pAt(Math.max(s0.x, q.x));
+          const top_ = Math.min(s0.y, q.y), bot_ = Math.max(s0.y, q.y);
+          const lo = bot_ >= H - m.b - 2 ? -1e9 : valOf(bot_), hi = top_ <= m.t + 2 ? 1e9 : valOf(top_);  // 框到最上、最下就連超出圖的跳點一起擦
+          const line = state.vixEraseLine || 'VIX期交所';
+          const src = line === 'VIX夜盤自算' ? nPts : line === 'VIX日盤自算' ? dPts : pts;
+          const hit = src.filter(o => o.p >= pa && o.p <= pb && o.v >= lo && o.v <= hi);
+          state.vixErasePending = hit.length ? { name: line, from: Math.min.apply(null, hit.map(o => o.ms)), to: Math.max.apply(null, hit.map(o => o.ms)), lo: lo, hi: hi, count: hit.length } : { count: 0 };
+          renderVixEraseBar();
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', end);
+        window.addEventListener('pointercancel', end);
+      };
       box._vix = on;
     }
     draw();
@@ -1998,6 +2064,7 @@ td.tog, .m-only { display: none; }
     renderMarket(d);
     if (!state.dragging) renderTable(d);  // 拖到一半不要被每分鐘的更新打斷
     $('erase-toggle').hidden = !state.canErase;
+    $('vix-erase-toggle').hidden = !state.canErase;
     if (d.history) {
       renderLegend(d.history); renderAxisBar(); renderBrushes(); renderChart(d.history); renderEraseBar();
     }
@@ -2067,7 +2134,7 @@ td.tog, .m-only { display: none; }
       renderPresence(res.presence);
       state.vixToday = res.vixToday || [];
       state.vixSelf = res.vixSelf || null;
-      if (!state.canErase) state.eraseOn = false;
+      if (!state.canErase) { state.eraseOn = false; state.vixEraseOn = false; }
       state.lastOk = Date.now();
       showGate(false);
       renderAll();
@@ -2087,7 +2154,7 @@ td.tog, .m-only { display: none; }
       if (!res.ok || getToken()) return;  // 等的時候已經登入了就不蓋掉
       state.isPreview = true;
       state.data = res.data;
-      state.canErase = false; state.canHistory = false; state.eraseOn = false;
+      state.canErase = false; state.canHistory = false; state.eraseOn = false; state.vixEraseOn = false;
       state.vixToday = res.vixToday || [];
       state.vixSelf = res.vixSelf || null;
       state.lastOk = Date.now();
@@ -2285,6 +2352,28 @@ td.tog, .m-only { display: none; }
   });
   $('table').addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.target.matches && e.target.matches('tr.demo-row')) openDemo();
+  });
+  $('vix-erase-toggle').addEventListener('click', e => {
+    state.vixEraseOn = !state.vixEraseOn;
+    state.vixErasePending = null;
+    e.currentTarget.setAttribute('aria-pressed', state.vixEraseOn);
+    renderVixEraseBar();
+    if (state.data) renderVix(state.data.vix);
+  });
+  $('vix-erase-bar').addEventListener('change', e => {
+    if (e.target.id !== 'vix-erase-line') return;
+    state.vixEraseLine = e.target.value; state.vixErasePending = null;
+    renderVixEraseBar();
+  });
+  $('vix-erase-bar').addEventListener('click', async e => {
+    if (e.target.id === 'vix-erase-cancel') { state.vixErasePending = null; renderVixEraseBar(); if (state.data) renderVix(state.data.vix); }
+    if (e.target.id === 'vix-erase-do') {
+      const p = state.vixErasePending;
+      if (await vixEraseSend({ action: 'erase', name: p.name, from: p.from, to: p.to, lo: p.lo, hi: p.hi })) { state.vixErasedCount = (state.vixErasedCount || 0) + 1; renderVixEraseBar(); }
+    }
+    if (e.target.id === 'vix-erase-undo') {
+      if (await vixEraseSend({ action: 'unerase' })) { state.vixErasedCount = Math.max(0, state.vixErasedCount - 1); renderVixEraseBar(); }
+    }
   });
   $('erase-toggle').addEventListener('click', e => {
     state.eraseOn = !state.eraseOn;
