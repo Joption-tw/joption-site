@@ -326,7 +326,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 900; }
 
 .erase-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 4px 12px 0; padding: 8px 12px; background: var(--kraft); border: var(--edge); border-radius: 12px; font-size: 14px; }
 .erase-bar label { font-weight: 700; }
-#vix-svg.erasing { cursor: none; }
+#vix-svg.erasing, #tv-svg.erasing { cursor: none; }
 .erase-bar .do { background: var(--coin); }
 .erase-bar button[disabled] { opacity: .45; cursor: default; }
 #erase-undo { margin-left: auto; }
@@ -1394,7 +1394,7 @@ td.tog, .m-only { display: none; }
         d += (pen ? 'L' : 'M') + x(p).toFixed(1) + ' ' + y(v).toFixed(1);
         pen = true;
       });
-      const dim = state.eraseOn && s.name !== state.eraseName;
+      const dim = state.eraseOn && s.isAvg;
       svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="' + s.w + '"' + (dim ? ' opacity=".3"' : s.op ? ' opacity="' + s.op + '"' : '') + ' stroke-linejoin="round" stroke-linecap="round"/>';
     });
     svg += '</g>';
@@ -1409,7 +1409,7 @@ td.tog, .m-only { display: none; }
       svg += '<circle cx="' + px + '" cy="' + py + '" r="6" fill="' + s.color + '" stroke="var(--white)" stroke-width="2"/>';
       svg += '<text class="tag" x="' + (px + (right ? 10 : -10)) + '" y="' + (Math.max(m.t + 12, py - 12)) + '" text-anchor="' + (right ? 'start' : 'end') + '" style="fill:' + ink + '">' + esc(s.name) + ' ' + int(s.last.value) + '</text>';
     });
-    svg += '<rect id="erase-rect" fill="var(--coin)" fill-opacity=".35" stroke="var(--ink)" stroke-dasharray="4 3" visibility="hidden"/>';
+    svg += '<g id="tv-erase-hits"></g><circle id="tv-eraser" r="' + VIX_ERASER_R + '" fill="var(--white)" fill-opacity=".55" stroke="var(--ink)" stroke-width="2" visibility="hidden"/>';
     svg += '<line id="tv-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="var(--ink)" visibility="hidden"/></svg>';
     box.innerHTML = svg + '<div class="tip" id="tv-tip" hidden></div>';
 
@@ -1432,39 +1432,62 @@ td.tog, .m-only { display: none; }
       el.addEventListener('pointerleave', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
       return;
     }
-    // 橡皮擦：拖一個框，框到的那條線的點才會擦掉；送出時換回剩餘天數，紀錄格式不變
+    // 橡皮擦：按住劃過去。一筆只擦第一條碰到的線（同時碰到好幾條，先挑進行中的這期、再挑最近的），
+    // 才不會連後面淡淡的過去合約一起擦掉；優化平均是算出來的，不能擦
     el.style.touchAction = 'none';
-    el.style.cursor = 'crosshair';
-    const rect = $('erase-rect');
+    el.classList.add('erasing');
+    const ring = $('tv-eraser'), marks = $('tv-erase-hits');
     const pos = e => { const r = el.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
-    const clampX = v => Math.max(m.l, Math.min(W - m.r, v)), clampY = v => Math.max(m.t, Math.min(H - m.b, v));
-    let start = null;
-    el.addEventListener('pointerdown', e => { start = pos(e); el.setPointerCapture(e.pointerId); state.erasePending = null; renderEraseBar(); });
+    const cand = list.filter(s => !s.isAvg);
+    const pts = cand.map(s => s.data.map((v, i) => (v === null || v === undefined || s.pos[i] === null || s.pos[i] < a || s.pos[i] > b ? null : { x: x(s.pos[i]), y: y(v) })));
+    const R2 = VIX_ERASER_R * VIX_ERASER_R;
+    const d2 = (q, A, B) => {
+      const dx = B.x - A.x, dy = B.y - A.y, len = dx * dx + dy * dy;
+      const k = len ? Math.max(0, Math.min(1, ((q.x - A.x) * dx + (q.y - A.y) * dy) / len)) : 0;
+      const ex = A.x + k * dx - q.x, ey = A.y + k * dy - q.y;
+      return ex * ex + ey * ey;
+    };
+    let stroke = null;
+    const sweep = (A, B) => {
+      if (stroke.li < 0) {
+        let best = null;
+        cand.forEach((s, li) => pts[li].forEach(q => {
+          if (!q) return;
+          const dd = d2(q, A, B);
+          if (dd > R2) return;
+          const score = (s.main ? 0 : 1e7) + dd;
+          if (!best || score < best.score) best = { li: li, score: score };
+        }));
+        if (!best) return;
+        stroke.li = best.li;
+      }
+      pts[stroke.li].forEach((q, i) => {
+        if (!q || stroke.hit.has(i) || d2(q, A, B) > R2) return;
+        stroke.hit.add(i);
+        marks.insertAdjacentHTML('beforeend', '<circle cx="' + q.x + '" cy="' + Math.max(m.t, Math.min(H - m.b, q.y)) + '" r="4" fill="var(--loss)" stroke="var(--white)" stroke-width="1.5"/>');
+      });
+    };
     el.addEventListener('pointermove', e => {
-      if (!start) return;
-      const p = pos(e);
-      rect.setAttribute('x', clampX(Math.min(start.x, p.x))); rect.setAttribute('y', clampY(Math.min(start.y, p.y)));
-      rect.setAttribute('width', Math.abs(clampX(p.x) - clampX(start.x))); rect.setAttribute('height', Math.abs(clampY(p.y) - clampY(start.y)));
-      rect.setAttribute('visibility', 'visible');
+      const q = pos(e);
+      ring.setAttribute('cx', q.x); ring.setAttribute('cy', q.y); ring.setAttribute('visibility', 'visible');
+      if (stroke) { sweep(stroke.last, q); stroke.last = q; }
     });
-    el.addEventListener('pointerup', e => {
-      if (!start) return;
-      const p = pos(e);
-      const s = list.find(o => o.name === state.eraseName);
-      const dayOf = px => (SETTLE_MIN - timeAt(slotsOf(s ? s.settle : ref.settle), posAtPx(m, W, px))) / 1440;
-      const valOf = py => (1 - (clampY(py) - m.t) / (H - m.t - m.b)) * yMax;
-      const top_ = Math.min(start.y, p.y);
-      const box_ = {
-        name: state.eraseName,
-        from: Math.min(dayOf(start.x), dayOf(p.x)), to: Math.max(dayOf(start.x), dayOf(p.x)),
-        lo: Math.min(valOf(start.y), valOf(p.y)),
-        hi: top_ <= m.t + 2 ? 1e9 : Math.max(valOf(start.y), valOf(p.y)),  // 框到最上面就連超出圖的跳點一起擦
-      };
-      start = null;
-      box_.count = s ? s.days.filter((d, i) => d >= box_.from && d <= box_.to && s.data[i] !== null && s.data[i] >= box_.lo && s.data[i] <= box_.hi).length : 0;
-      state.erasePending = box_;
-      renderEraseBar();
+    el.addEventListener('pointerleave', () => { if (!stroke) ring.setAttribute('visibility', 'hidden'); });
+    el.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      el.setPointerCapture(e.pointerId);
+      const q = pos(e);
+      stroke = { li: -1, hit: new Set(), last: q };
+      sweep(q, q);
     });
+    const finish = () => {
+      if (!stroke) return;
+      const st = stroke;
+      stroke = null;
+      if (st.li >= 0 && st.hit.size) tvEraseStroke(cand[st.li], [...st.hit]);
+    };
+    el.addEventListener('pointerup', finish);
+    el.addEventListener('pointercancel', finish);
   }
 
   // 盤別按鈕：全部或只看某一盤；有兩期在跑時可以換對齊哪一期
@@ -1504,15 +1527,11 @@ td.tog, .m-only { display: none; }
     const bar = $('erase-bar'), h = state.data && state.data.history;
     bar.hidden = !state.eraseOn || !h;
     if (bar.hidden) return;
-    const names = seriesList(h).filter(s => !s.isAvg).reverse().map(s => s.name);
-    if (names.indexOf(state.eraseName) < 0) state.eraseName = names[0];
-    const p = state.erasePending;
-    let html = '<label for="erase-series">要擦哪條線</label><select class="btn" id="erase-series">' + names.map(n => '<option' + (n === state.eraseName ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>';
-    if (!p) html += '<span>在圖上拖一個框，框住要擦掉的點。</span>';
-    else if (!p.count) html += '<span>這個框裡沒有這條線的點，再框一次。</span>';
-    else html += '<span>擦掉 ' + esc(p.name) + ' 的 <b>' + p.count + '</b> 個點（剩 ' + p.from.toFixed(2) + '～' + p.to.toFixed(2) + ' 天）？</span><button class="btn do" id="erase-do">擦掉</button><button class="btn" id="erase-cancel">取消</button>';
-    html += '<button class="btn" id="erase-undo"' + (state.erasedCount ? '' : ' disabled') + '>復原上一步</button>';
-    bar.innerHTML = html;
+    const msg = state.eraseMsg;
+    bar.innerHTML = '<span>按住滑鼠（手機用手指）在線上<b>劃過去</b>，碰到的點就擦掉。一筆只擦第一條碰到的線，優化平均不能擦。</span>' +
+      (msg ? '<span' + (msg.bad ? ' class="loss"' : '') + '>' + esc(msg.text) + '</span>' : '') +
+      '<button class="btn" id="erase-undo"' + ((state.tvStrokes || []).length ? '' : ' disabled') + '>復原上一筆</button>' +
+      '<button class="btn" id="erase-done">擦好了</button>';
   }
 
   function renderVixEraseBar() {
@@ -1525,19 +1544,21 @@ td.tog, .m-only { display: none; }
       '<button class="btn" id="vix-erase-undo"' + ((state.vixStrokes || []).length ? '' : ' disabled') + '>復原上一筆</button>' +
       '<button class="btn" id="vix-erase-done">擦好了</button>';
   }
-  // 送伺服器；畫面已經先改好，這裡只在失敗時提示，成功後等正在跑的更新結束再抓一次
-  let vixQueue = Promise.resolve();
-  async function vixEraseSend(body) {
+  // 送伺服器；畫面已經先改好，失敗時 onFail 提示，成功後等正在跑的更新結束再抓一次
+  // 時間價值和 VIX 的橡皮擦共用一條佇列，一筆一筆照順序送，復原不會比擦掉先到伺服器
+  let eraseQueue = Promise.resolve();
+  async function eraseQueueSend(body, onFail) {
     body.token = getToken();
-    let ok = false;
-    // 一筆一筆照順序送，復原不會比擦掉先到伺服器
-    const job = vixQueue.then(() => api(body)).then(r => !!(r && r.ok), () => false);
-    vixQueue = job;
-    ok = await job;
-    if (!ok) { state.vixEraseMsg = { bad: true, text: '沒有存到伺服器，可能沒有權限或連不上，畫面會還原。' }; renderVixEraseBar(); }
+    const job = eraseQueue.then(() => api(body)).then(r => !!(r && r.ok), () => false);
+    eraseQueue = job;
+    const ok = await job;
+    if (!ok && onFail) onFail();
     for (let i = 0; loading && i < 120; i++) await new Promise(r => setTimeout(r, 250));
-    await load(true);
+    if (window.MON_SNAPSHOT) { state.data = window.MON_SNAPSHOT; renderAll(); } else await load(true);
     return ok;
+  }
+  function vixEraseSend(body) {
+    return eraseQueueSend(body, () => { state.vixEraseMsg = { bad: true, text: '沒有存到伺服器，可能沒有權限或連不上，畫面會還原。' }; renderVixEraseBar(); });
   }
   // 劃一筆：先在畫面上拿掉，再送伺服器；記下來給「復原上一筆」
   function vixEraseItems(items, count) {
@@ -1556,15 +1577,45 @@ td.tog, .m-only { display: none; }
     v.erased = (v.erased || []).filter(e => !items.some(it => same(it, e) || (it[0] === e[0] && Math.abs(it[1] - e[1]) < 1 && Math.abs(it[2] - e[2]) < 1)));
     state.vixEraseMsg = { text: '已復原' };
     renderVix(v); renderVixEraseBar();
-    vixEraseSend({ action: 'unerase' });
+    vixEraseSend({ action: 'unerase', kind: 'vix' });
   }
-  async function eraseSend(body) {
-    body.token = getToken();
-    const res = await api(body);
-    if (!res.ok) { $('erase-bar').insertAdjacentHTML('beforeend', '<span class="loss">沒有擦成功，可能沒有權限或連不上。</span>'); return false; }
-    state.erasePending = null;
-    if (window.MON_SNAPSHOT) { state.data = window.MON_SNAPSHOT; renderAll(); } else await load(true);
-    return true;
+  // 時間價值劃一筆：先把點設成空的（畫面馬上消失），連續的點合成一段 [線, 剩餘天數從, 到, 值從, 值到] 送伺服器
+  function tvEraseStroke(s, idx) {
+    idx.sort((p1, p2) => p1 - p2);
+    const items = [], back = [];
+    let run = [];
+    const flush = () => {
+      if (!run.length) return;
+      const ds = run.map(i => s.days[i]), vs = run.map(i => s.data[i]);
+      items.push([s.name, Math.min.apply(null, ds) - 1e-7, Math.max.apply(null, ds) + 1e-7, Math.min.apply(null, vs) - .5, Math.max.apply(null, vs) + .5]);
+      run = [];
+    };
+    idx.forEach(i => {
+      if (run.length) for (let j = run[run.length - 1] + 1; j < i; j++) if (s.data[j] !== null && s.data[j] !== undefined) { flush(); break; }  // 中間有沒擦到的點就斷開
+      run.push(i);
+    });
+    flush();
+    idx.forEach(i => { back.push([s.days[i], s.data[i]]); s.data[i] = null; });
+    const st = { name: s.name, items: items, back: back };
+    (state.tvStrokes = state.tvStrokes || []).push(st);
+    state.eraseMsg = { text: '擦掉 ' + s.name + ' 的 ' + idx.length + ' 個點' };
+    renderChart(state.data.history); renderEraseBar();
+    eraseQueueSend({ action: 'erase', items: items }, () => {
+      state.tvStrokes = state.tvStrokes.filter(x => x !== st);
+      state.eraseMsg = { bad: true, text: '沒有存到伺服器，可能沒有權限或連不上，畫面會還原。' }; renderEraseBar();
+    });
+  }
+  // 復原：照剩餘天數把點填回目前的資料（中間重新抓過資料也找得到），再請伺服器收回
+  function tvUndo() {
+    const st = (state.tvStrokes || []).pop(), h = state.data && state.data.history;
+    if (!st || !h) return;
+    h.contracts.filter(c => c.name === st.name).forEach(c => st.back.forEach(bk => {
+      const i = c.days.indexOf(bk[0]);
+      if (i >= 0 && (c.data[i] === null || c.data[i] === undefined)) c.data[i] = bk[1];
+    }));
+    state.eraseMsg = { text: '已復原' };
+    renderChart(h); renderEraseBar();
+    eraseQueueSend({ action: 'unerase', kind: 'tv' });
   }
 
   // VIX 自己一條日期橫軸：最近一期結算日往回 10 個交易日（週一到週五）
@@ -2420,26 +2471,17 @@ td.tog, .m-only { display: none; }
     if (e.target.id === 'vix-erase-done') vixEraseToggle(false);
     if (e.target.id === 'vix-erase-undo') vixUndo();
   });
-  $('erase-toggle').addEventListener('click', e => {
-    state.eraseOn = !state.eraseOn;
-    state.erasePending = null;
-    e.currentTarget.setAttribute('aria-pressed', state.eraseOn);
-    renderChart(state.data.history); renderEraseBar();
-  });
-  $('erase-bar').addEventListener('change', e => {
-    if (e.target.id !== 'erase-series') return;
-    state.eraseName = e.target.value; state.erasePending = null;
-    renderChart(state.data.history); renderEraseBar();
-  });
-  $('erase-bar').addEventListener('click', async e => {
-    if (e.target.id === 'erase-cancel') { state.erasePending = null; renderChart(state.data.history); renderEraseBar(); }
-    if (e.target.id === 'erase-do') {
-      const p = state.erasePending;
-      if (await eraseSend({ action: 'erase', name: p.name, from: p.from, to: p.to, lo: p.lo, hi: p.hi })) { state.erasedCount = (state.erasedCount || 0) + 1; renderEraseBar(); }
-    }
-    if (e.target.id === 'erase-undo') {
-      if (await eraseSend({ action: 'unerase' })) { state.erasedCount = Math.max(0, state.erasedCount - 1); renderEraseBar(); }
-    }
+  const eraseToggle = on => {
+    state.eraseOn = on;
+    state.eraseMsg = null;
+    $('erase-toggle').setAttribute('aria-pressed', on);
+    if (state.data) renderChart(state.data.history);
+    renderEraseBar();
+  };
+  $('erase-toggle').addEventListener('click', () => eraseToggle(!state.eraseOn));
+  $('erase-bar').addEventListener('click', e => {
+    if (e.target.id === 'erase-done') eraseToggle(false);
+    if (e.target.id === 'erase-undo') tvUndo();
   });
   let pinFrame = 0;
   const pinLater = () => { if (!pinFrame) pinFrame = requestAnimationFrame(() => { pinFrame = 0; pinHead(); }); };
