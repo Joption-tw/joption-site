@@ -11,6 +11,8 @@ Joption 官網（https://www.joption.com.tw）。`content/*.md` 由 `build.py` �
 - 「登入失敗」FAQ 已改成「通用設定 → 更新帳密」，連到更換金鑰流程（不再叫人刪 pw.txt）。
 - 群益安裝說明第 8 節有兩個按鈕：下載排程小幫手、排程小幫手完整說明（連到 FAQ）。
 
+- **FAQ 新增「一鍵上傳 Log 報錯」**（`content/faq/上傳log報錯.md`，order 365，目前 `hidden: true` 測試中）：上傳工具在 `content/tools/log上傳.html`，檔案送到歐大 Google 帳號的 Apps Script（程式碼不在這個 repo）。工具裡 `UPLOAD_URL` 還是空白，空白時頁面顯示「上傳功能準備中」。Apps Script 部署好後把 `.../exec` 網址填進 `UPLOAD_URL`，測試沒問題再拿掉 `hidden: true`。
+
 ## 重要做法
 - 下載檔放 `content/files/`（原樣複製，網址 `/files/檔名`）；`content/tools/` 只能放 html。
 - 排程小幫手改版時：換 `content/files/` 裡的安裝檔，並改兩個地方的連結版本號（群益安裝說明第 8 節、FAQ 排程小幫手頁）。

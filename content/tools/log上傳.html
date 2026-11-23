@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>一鍵上傳 Log</title>
+<style>
+/* 和官網 theme/site.css 同一組顏色 */
+:root{
+  --coin:#ffc62e;--coin-deep:#f0a30a;--sky:#cff3fb;--indigo:#3a35c4;--indigo-deep:#241f86;
+  --ink:#17142b;--muted:#5c5870;--paper:#fffcf5;--kraft:#fff1da;--call:#d9321f;--put:#0a7f4d;
+  --edge:2.5px solid var(--ink);--pop:4px 4px 0 var(--ink);--pop-big:6px 6px 0 var(--ink);
+  --display:"Lilita One","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:transparent}
+body{color:var(--ink);font:17px/1.8 "PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;padding:4px 8px 12px 0}
+.panel{background:#fff;border:var(--edge);border-radius:16px;box-shadow:var(--pop-big);padding:24px}
+#drop{display:block;border:3px dashed var(--indigo);border-radius:14px;padding:30px 16px;text-align:center;cursor:pointer;background:var(--sky);transition:transform .12s}
+#drop:hover,#drop.over{transform:translate(-2px,-2px);background:#e4f8fd}
+#drop.has{border-style:solid;background:#fff9e0}
+#drop .big{display:block;font-family:var(--display);font-weight:900;font-size:21px;color:var(--indigo-deep);overflow-wrap:anywhere}
+#drop small{display:block;color:var(--muted);font-size:14px}
+label.l{display:block;margin:18px 0 6px;font-weight:900;font-size:15px}
+label.l em{font-style:normal;font-weight:400;color:var(--muted)}
+input[type=text],textarea{width:100%;padding:10px 14px;border:var(--edge);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:16px}
+input[type=text]:focus,textarea:focus{outline:none;box-shadow:3px 3px 0 var(--indigo)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.go{display:flex;align-items:center;justify-content:center;width:100%;margin-top:22px;min-height:52px;padding:8px 18px;border:var(--edge);border-radius:999px;background:var(--coin);color:var(--ink);font:inherit;font-size:19px;font-weight:900;cursor:pointer;box-shadow:var(--pop);transition:transform .1s,box-shadow .1s}
+.go:hover:not(:disabled){background:var(--coin-deep)}
+.go:active:not(:disabled){transform:translate(4px,4px);box-shadow:none}
+.go:disabled{background:#eee7d6;color:var(--muted);cursor:not-allowed;box-shadow:none;border-color:var(--muted)}
+.note{margin:14px 0 0;font-size:14px;color:var(--muted);line-height:1.6}
+.err{display:none;margin-top:14px;padding:10px 14px;border:var(--edge);border-radius:10px;background:#ffe3df;color:var(--call);font-weight:700}
+.wait{display:none;margin-top:16px;padding:14px 16px;border:var(--edge);border-radius:12px;background:var(--kraft);font-weight:700}
+.spin{display:inline-block;width:16px;height:16px;margin-right:10px;vertical-align:-2px;border:3px solid var(--coin-deep);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#done{display:none;text-align:center}
+.tick{width:64px;height:64px;margin:0 auto 6px;border-radius:50%;background:var(--put);border:var(--edge);display:grid;place-items:center;color:#fff;font-size:34px;box-shadow:var(--pop)}
+h2{font-family:var(--display);font-weight:900;font-size:26px;margin:12px auto 6px;display:table;background:linear-gradient(transparent 68%,var(--coin) 68%,var(--coin) 92%,transparent 92%)}
+.code{display:inline-block;margin:10px 0;padding:6px 22px;border:var(--edge);border-radius:12px;background:var(--coin);font-family:var(--display);font-size:32px;letter-spacing:.14em;box-shadow:var(--pop);user-select:all}
+.res{margin:18px 0 0;padding:16px 18px;border:var(--edge);border-radius:14px;text-align:left;background:var(--kraft);line-height:1.7}
+.res.known{background:var(--sky)}
+.res h3{margin:0 0 8px;font-size:19px;color:var(--indigo-deep)}
+.res p{margin:0 0 8px}
+.btn{display:inline-flex;align-items:center;min-height:40px;margin:6px 8px 0 0;padding:6px 14px;border:2px solid var(--ink);border-radius:999px;background:#fff;color:var(--ink);font:inherit;font-size:15px;font-weight:900;line-height:1.2;text-decoration:none;cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+.btn:hover{background:var(--coin)}
+.btn.line{background:#06c755;color:#fff}
+@media(max-width:640px){.row{grid-template-columns:1fr}.panel{padding:18px}}
+</style>
+</head>
+<body>
+<div class="panel" id="form">
+  <label id="drop" for="file"><span class="big" id="fname">點這裡選擇檔案，或把檔案拖進來</span><small>支援 .zip（一鍵報錯產生的壓縮檔）、.log、.txt，最大 20 MB</small></label>
+  <input type="file" id="file" accept=".zip,.log,.txt,.out" hidden>
+  <label class="l" for="desc">發生了什麼事？ <em>（選填，寫越清楚越快找到原因）</em></label>
+  <textarea id="desc" rows="3" placeholder="例如：09:05 按下雙賣建倉後沒有下單，訊息區一直顯示連線中"></textarea>
+  <div class="row">
+    <div><label class="l" for="ver">Joption 版本 <em>（選填）</em></label><input type="text" id="ver" placeholder="例如 3.2.1"></div>
+    <div><label class="l" for="contact">聯絡方式 <em>（選填，方便回覆）</em></label><input type="text" id="contact" placeholder="LINE ID 或 Email"></div>
+  </div>
+  <button class="go" id="go" type="button" disabled>上傳 Log</button>
+  <div class="wait" id="wait"><span class="spin"></span><span id="waitText">上傳中…</span></div>
+  <div class="err" id="err" role="alert"></div>
+  <p class="note">🔒 上傳時，系統會自動遮蔽 Email、IP、身分證字號、帳號、密碼、金鑰等敏感資訊，Log 只有歐大與工程師看得到，僅供技術分析使用。</p>
+</div>
+
+<div class="panel" id="done" aria-live="polite">
+  <div class="tick">✓</div>
+  <h2>已收到您的 Log</h2>
+  <div>您的案件編號</div>
+  <div class="code" id="cid"></div>
+  <p class="note" style="margin-top:0">請記下這組編號，聯絡客服時告知即可。</p>
+  <div class="res" id="result"></div>
+  <div style="margin-top:14px"><button class="btn" type="button" id="copy">複製編號</button><button class="btn" type="button" id="again">再傳一份</button></div>
+</div>
+
+<script>
+// ↓↓↓ Google 小程式部署後的網址（.../exec）。空白時頁面會顯示「準備中」。
+var UPLOAD_URL = '';
+// ↑↑↑
+
+var LINE_URL = 'https://line.me/ti/p/MnAWXchQ7F';
+var $ = function (id) { return document.getElementById(id); }, file = null;
+function showErr(m) { $('err').textContent = m; $('err').style.display = 'block'; }
+function el(tag, text, cls) { var e = document.createElement(tag); if (text) e.textContent = text; if (cls) e.className = cls; return e; }
+
+if (!UPLOAD_URL) {
+  $('fname').textContent = '上傳功能準備中';
+  $('drop').style.pointerEvents = 'none';
+  showErr('上傳功能即將開放。目前請先依「快速生成 Log 檔步驟」用 LINE 傳給歐大。');
+}
+
+function pick(f) {
+  if (!f || !UPLOAD_URL) return;
+  if (f.size > 20 * 1024 * 1024) { showErr('檔案超過 20 MB，請改傳較新的 Log。'); return; }
+  file = f; $('err').style.display = 'none';
+  $('fname').textContent = '📦 ' + f.name + '（' + (f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : (f.size / 1024).toFixed(1) + ' KB') + '）';
+  $('drop').classList.add('has'); $('go').disabled = false;
+}
+$('file').onchange = function (e) { pick(e.target.files[0]); };
+var d = $('drop');
+d.ondragover = function (e) { e.preventDefault(); d.classList.add('over'); };
+d.ondragleave = function () { d.classList.remove('over'); };
+d.ondrop = function (e) { e.preventDefault(); d.classList.remove('over'); pick(e.dataTransfer.files[0]); };
+
+function readBase64(f) {
+  return new Promise(function (ok, fail) {
+    var r = new FileReader();
+    r.onload = function () { ok(String(r.result).split(',')[1] || ''); };
+    r.onerror = function () { fail(new Error('讀取檔案失敗')); };
+    r.readAsDataURL(f);
+  });
+}
+
+$('go').onclick = async function () {
+  $('go').disabled = true; $('go').style.display = 'none'; $('err').style.display = 'none';
+  $('wait').style.display = 'block'; $('waitText').textContent = '上傳中…';
+  var t = setTimeout(function () { $('waitText').textContent = '已收到，正在檢查您的 Log，約需 30 秒，請不要關閉頁面…'; }, 4000);
+  try {
+    var b64 = await readBase64(file);
+    // 不設定 Content-Type（瀏覽器會用 text/plain），Google 小程式才能正常接收
+    var r = await fetch(UPLOAD_URL, { method: 'POST', body: JSON.stringify({
+      file: b64, name: file.name, source: 'web',
+      desc: $('desc').value, ver: $('ver').value, contact: $('contact').value, env: navigator.userAgent }) });
+    var j = await r.json();
+    if (!j.ok) throw new Error(j.error || '上傳失敗');
+    $('cid').textContent = j.id;
+    show(j.customer || { kind: 'engineer' });
+    $('form').style.display = 'none'; $('done').style.display = 'block';
+  } catch (e) {
+    showErr('上傳失敗：' + e.message + '。請稍後再試，或改用 LINE 傳給歐大。');
+    $('go').disabled = false; $('go').style.display = 'flex';
+  } finally { clearTimeout(t); $('wait').style.display = 'none'; }
+};
+
+function show(c) {
+  var box = $('result'); box.innerHTML = ''; box.className = 'res';
+  if (c.kind === 'known') {
+    box.classList.add('known');
+    box.appendChild(el('h3', c.title));
+    String(c.message || '').split('\n').forEach(function (s) { if (s.trim()) box.appendChild(el('p', s)); });
+    if (c.link) { var a = el('a', c.linkText || '詳細說明', 'btn'); a.href = c.link; a.target = '_top'; box.appendChild(a); }
+    box.appendChild(el('p', '照著做之後如果還是沒解決，請告訴客服您的案件編號，工程師會立刻接手處理。', 'note'));
+  } else {
+    box.appendChild(el('h3', '工程師會立刻解析並回覆您'));
+    box.appendChild(el('p', '您的狀況需要進一步判讀。我們已收到 Log，工程師會立刻解析，找出原因後回覆您。'));
+    var ct = $('contact').value.trim();
+    box.appendChild(el('p', ct ? '回覆會傳到您留的聯絡方式：' + ct : '您沒有留聯絡方式，請把案件編號傳給客服，方便我們對應。', 'note'));
+    var l = el('a', 'LINE@ 歐大的官方客服', 'btn line'); l.href = LINE_URL; l.target = '_blank'; l.rel = 'noopener'; box.appendChild(l);
+  }
+}
+$('copy').onclick = function () { if (navigator.clipboard) navigator.clipboard.writeText($('cid').textContent); $('copy').textContent = '已複製 ✓'; };
+$('again').onclick = function () { location.reload(); };
+</script>
+</body>
+</html>
