@@ -39,7 +39,7 @@ def collect_pages():
     pages = []
     for folder, dirs, files in os.walk(CONTENT):
         rel = os.path.relpath(folder, CONTENT).replace("\\", "/")
-        if rel.split("/")[0] in ("images", "tools"):
+        if rel.split("/")[0] in ("images", "tools", "files"):
             dirs[:] = []
             continue
         for name in files:
@@ -494,7 +494,7 @@ def build(base=None, preview=False):
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp)
 
-    for folder in ("images", "tools"):
+    for folder in ("images", "tools", "files"):
         src = os.path.join(CONTENT, folder)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(tmp, folder))
