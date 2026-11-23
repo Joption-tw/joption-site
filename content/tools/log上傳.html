@@ -16,22 +16,45 @@
 html,body{margin:0;background:transparent}
 body{color:var(--ink);font:17px/1.8 "PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;padding:4px 8px 12px 0}
 .panel{background:#fff;border:var(--edge);border-radius:16px;box-shadow:var(--pop-big);padding:24px}
-#drop{display:block;border:3px dashed var(--indigo);border-radius:14px;padding:30px 16px;text-align:center;cursor:pointer;background:var(--sky);transition:transform .12s}
-#drop:hover,#drop.over{transform:translate(-2px,-2px);background:#e4f8fd}
-#drop.has{border-style:solid;background:#fff9e0}
-#drop .big{display:block;font-family:var(--display);font-weight:900;font-size:21px;color:var(--indigo-deep);overflow-wrap:anywhere}
-#drop small{display:block;color:var(--muted);font-size:14px}
-label.l{display:block;margin:18px 0 6px;font-weight:900;font-size:15px}
-label.l em{font-style:normal;font-weight:400;color:var(--muted)}
-input[type=text],textarea{width:100%;padding:10px 14px;border:var(--edge);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:16px}
-input[type=text]:focus,textarea:focus{outline:none;box-shadow:3px 3px 0 var(--indigo)}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.go{display:flex;align-items:center;justify-content:center;width:100%;margin-top:22px;min-height:52px;padding:8px 18px;border:var(--edge);border-radius:999px;background:var(--coin);color:var(--ink);font:inherit;font-size:19px;font-weight:900;cursor:pointer;box-shadow:var(--pop);transition:transform .1s,box-shadow .1s}
-.go:hover:not(:disabled){background:var(--coin-deep)}
-.go:active:not(:disabled){transform:translate(4px,4px);box-shadow:none}
-.go:disabled{background:#eee7d6;color:var(--muted);cursor:not-allowed;box-shadow:none;border-color:var(--muted)}
+.free{margin:0 0 6px;font-weight:700;color:var(--indigo-deep)}
+.step{display:flex;align-items:center;gap:10px;margin:22px 0 8px;font-weight:900;font-size:17px}
+.step:first-of-type{margin-top:6px}
+.step b{display:inline-grid;place-items:center;width:30px;height:30px;border:var(--edge);border-radius:50%;background:var(--coin);font-size:15px;flex:none}
+.step em{font-style:normal;font-weight:400;font-size:14px;color:var(--muted)}
+.zone{display:block;width:100%;border:3px dashed var(--indigo);border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;background:var(--sky);font:inherit;color:inherit;transition:transform .12s}
+.zone:hover,.zone.over,.zone:focus{outline:none;transform:translate(-2px,-2px);background:#e4f8fd}
+.zone:focus{box-shadow:3px 3px 0 var(--indigo)}
+.zone.has{border-style:solid;background:#fff9e0}
+.zone .big{display:block;font-family:var(--display);font-weight:900;font-size:20px;color:var(--indigo-deep);overflow-wrap:anywhere}
+.zone small{display:block;color:var(--muted);font-size:14px;line-height:1.6}
+kbd{display:inline-block;padding:0 7px;border:2px solid var(--ink);border-radius:6px;background:#fff;font:inherit;font-size:.9em;font-weight:900;box-shadow:1px 1px 0 var(--ink)}
+.tip{margin:0 0 10px;padding:10px 14px;border:var(--edge);border-radius:12px;background:var(--kraft);font-size:15px;line-height:1.7}
+.tip strong{color:var(--call)}
+.pickrow{margin-top:8px;font-size:14px;color:var(--muted)}
+.linkbtn{padding:0;border:0;background:none;color:var(--indigo);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:12px}
+.shot{border:var(--edge);border-radius:10px;background:#fff;overflow:hidden;box-shadow:2px 2px 0 var(--ink)}
+.shot img{display:block;width:100%;height:96px;object-fit:cover;object-position:top;border-bottom:2px solid var(--ink);cursor:zoom-in}
+.shot .bar{display:flex}
+.shot .bar button{flex:1;padding:6px 0;border:0;background:#fff;font:inherit;font-size:14px;font-weight:900;cursor:pointer}
+.shot .bar button+button{border-left:2px solid var(--ink)}
+.shot .bar button:hover{background:var(--coin)}
+.shot .tag{display:block;padding:2px 8px;font-size:12px;color:var(--put);font-weight:700;border-bottom:2px solid var(--ink);background:#eafaf2}
+#editor{display:none;margin-top:12px;padding:12px;border:var(--edge);border-radius:12px;background:var(--kraft)}
+#editor p{margin:0 0 8px;font-size:15px;font-weight:700}
+#canvas{display:block;width:100%;height:auto;border:2px solid var(--ink);border-radius:6px;background:#fff;cursor:crosshair;touch-action:none}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+textarea,input[type=text],input[type=email]{width:100%;padding:10px 14px;border:var(--edge);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:16px}
+textarea:focus,input[type=text]:focus,input[type=email]:focus{outline:none;box-shadow:3px 3px 0 var(--indigo)}
+.go{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:26px;min-height:58px;padding:10px 22px;border:var(--edge);border-radius:999px;background:var(--coin);color:var(--ink);font-family:var(--display);font-size:21px;font-weight:900;letter-spacing:.04em;cursor:pointer;box-shadow:var(--pop-big);transition:transform .1s,box-shadow .1s,opacity .15s}
+.go svg{width:24px;height:24px;flex:none}
+.go:hover:not(:disabled){background:var(--coin-deep);transform:translate(-1px,-1px);box-shadow:7px 7px 0 var(--ink)}
+.go:active:not(:disabled){transform:translate(6px,6px);box-shadow:none}
+.go:disabled{opacity:.45;cursor:not-allowed;box-shadow:var(--pop)}
+.sum{margin:10px 0 0;text-align:center;font-size:14px;color:var(--muted)}
 .note{margin:14px 0 0;font-size:14px;color:var(--muted);line-height:1.6}
 .err{display:none;margin-top:14px;padding:10px 14px;border:var(--edge);border-radius:10px;background:#ffe3df;color:var(--call);font-weight:700}
+.soon{margin:0 0 14px;padding:10px 14px;border:var(--edge);border-radius:10px;background:#ffe3df;color:var(--call);font-weight:700;font-size:15px}
 .wait{display:none;margin-top:16px;padding:14px 16px;border:var(--edge);border-radius:12px;background:var(--kraft);font-weight:700}
 .spin{display:inline-block;width:16px;height:16px;margin-right:10px;vertical-align:-2px;border:3px solid var(--coin-deep);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -45,32 +68,71 @@ h2{font-family:var(--display);font-weight:900;font-size:26px;margin:12px auto 6p
 .res p{margin:0 0 8px}
 .btn{display:inline-flex;align-items:center;min-height:40px;margin:6px 8px 0 0;padding:6px 14px;border:2px solid var(--ink);border-radius:999px;background:#fff;color:var(--ink);font:inherit;font-size:15px;font-weight:900;line-height:1.2;text-decoration:none;cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
 .btn:hover{background:var(--coin)}
+.btn.main{background:var(--coin)}
 .btn.line{background:#06c755;color:#fff}
-@media(max-width:640px){.row{grid-template-columns:1fr}.panel{padding:18px}}
+.btn.big{min-height:50px;padding:8px 22px;font-size:18px;box-shadow:var(--pop)}
+.next{margin:14px 0 0;padding:16px 18px;border:var(--edge);border-radius:14px;background:#eafaf2;text-align:left}
+.next h3{margin:0 0 6px;font-size:19px;color:var(--put)}
+.next ol{margin:0 0 10px;padding-left:22px;line-height:1.8}
+.next strong{color:var(--call)}
+@media(max-width:640px){.panel{padding:18px}.shots{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <div class="panel" id="form">
-  <label id="drop" for="file"><span class="big" id="fname">點這裡選擇檔案，或把檔案拖進來</span><small>支援 .zip（一鍵報錯產生的壓縮檔）、.log、.txt，最大 20 MB</small></label>
+  <div class="soon" id="soon" hidden>上傳功能即將開放。目前請先依「快速生成 Log 檔步驟」用 LINE 傳給歐大。</div>
+  <p class="free">下面三樣都是選填，有多少就傳多少。</p>
+
+  <div class="step"><b>1</b>Log 檔 <em>（一鍵報錯產生的 .zip）</em></div>
+  <label class="zone" id="drop" for="file"><span class="big" id="fname">點這裡選擇 Log 檔，或把檔案拖進來</span><small>支援 .zip、.log、.txt，最大 20 MB</small></label>
   <input type="file" id="file" accept=".zip,.log,.txt,.out" hidden>
-  <label class="l" for="desc">發生了什麼事？ <em>（選填，寫越清楚越快找到原因）</em></label>
-  <textarea id="desc" rows="3" placeholder="例如：09:05 按下雙賣建倉後沒有下單，訊息區一直顯示連線中"></textarea>
-  <div class="row">
-    <div><label class="l" for="ver">Joption 版本 <em>（選填）</em></label><input type="text" id="ver" placeholder="例如 3.2.1"></div>
-    <div><label class="l" for="contact">聯絡方式 <em>（選填，方便回覆）</em></label><input type="text" id="contact" placeholder="LINE ID 或 Email"></div>
+
+  <div class="step"><b>2</b>截圖 <em>（最多 6 張）</em></div>
+  <p class="tip">📸 請截<strong>整個螢幕</strong>（不要只截一小塊），再按每張圖下面的<strong>「畫圈」</strong>，把有問題的地方圈起來。</p>
+  <div class="zone" id="paste" tabindex="0" role="button" aria-label="貼上截圖">
+    <span class="big">先點這個框，再按 <kbd>Ctrl</kbd> + <kbd>V</kbd> 貼上截圖</span>
+    <small>截整個螢幕：按 <kbd>PrtSc</kbd>（或 <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd> 選全螢幕）</small>
   </div>
-  <button class="go" id="go" type="button" disabled>上傳 Log</button>
+  <div class="pickrow">也可以 <button type="button" class="linkbtn" id="pickImg">選擇圖片檔</button>，或把圖片拖進上面的框（手機請按這裡選相簿）。</div>
+  <input type="file" id="img" accept="image/*" multiple hidden>
+  <div class="shots" id="shots"></div>
+  <div id="editor">
+    <p>✏️ 用滑鼠（或手指）在有問題的地方畫圈。</p>
+    <canvas id="canvas"></canvas>
+    <div class="tools">
+      <button type="button" class="btn main" id="edDone">完成</button>
+      <button type="button" class="btn" id="edUndo">↶ 復原一筆</button>
+      <button type="button" class="btn" id="edClear">全部清掉</button>
+    </div>
+  </div>
+
+  <div class="step"><b>3</b>簡單描述 <em>（發生了什麼事？）</em></div>
+  <textarea id="desc" rows="3" placeholder="例如：09:05 按下雙賣建倉後沒有下單，訊息區一直顯示連線中"></textarea>
+
+  <div class="step"><b>@</b>你的 E-mail <em>（工程師查好會寄到這裡）</em></div>
+  <input type="email" id="contact" placeholder="例如 name@gmail.com" autocomplete="email" inputmode="email">
+
+  <button class="go" id="go" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg><span>送出給工程師</span></button>
+  <p class="sum" id="sum">放一樣以上就能送出</p>
   <div class="wait" id="wait"><span class="spin"></span><span id="waitText">上傳中…</span></div>
   <div class="err" id="err" role="alert"></div>
-  <p class="note">🔒 上傳時，系統會自動遮蔽 Email、IP、身分證字號、帳號、密碼、金鑰等敏感資訊，Log 只有歐大與工程師看得到，僅供技術分析使用。</p>
+  <p class="note">🔒 Joption 版本會從 Log 自動判讀，不用填。上傳時，系統會自動遮蔽 Email、IP、身分證字號、帳號、密碼、金鑰等敏感資訊，資料只有歐大與工程師看得到，僅供技術分析使用。</p>
 </div>
 
 <div class="panel" id="done" aria-live="polite">
   <div class="tick">✓</div>
-  <h2>已收到您的 Log</h2>
+  <h2>已收到您的資料</h2>
   <div>您的案件編號</div>
   <div class="code" id="cid"></div>
-  <p class="note" style="margin-top:0">請記下這組編號，聯絡客服時告知即可。</p>
+  <div class="next">
+    <h3>最後一步：告訴歐大</h3>
+    <ol>
+      <li>把<strong>這個畫面截圖</strong>（有案件編號）。</li>
+      <li>用 LINE 傳給歐大，說「我傳了 Log，編號 <strong id="cid2"></strong>」。</li>
+      <li>還沒加歐大 LINE 的，先按下面加好友。</li>
+    </ol>
+    <a class="btn line big" id="lineBtn" target="_blank" rel="noopener">＋ 加歐大 LINE@ 好友</a>
+  </div>
   <div class="res" id="result"></div>
   <div style="margin-top:14px"><button class="btn" type="button" id="copy">複製編號</button><button class="btn" type="button" id="again">再傳一份</button></div>
 </div>
@@ -81,29 +143,129 @@ var UPLOAD_URL = '';
 // ↑↑↑
 
 var LINE_URL = 'https://line.me/ti/p/MnAWXchQ7F';
-var $ = function (id) { return document.getElementById(id); }, file = null;
+var MAX_SHOTS = 6, MAX_SIDE = 1920;
+var $ = function (id) { return document.getElementById(id); }, file = null, shots = [], editing = null;
 function showErr(m) { $('err').textContent = m; $('err').style.display = 'block'; }
 function el(tag, text, cls) { var e = document.createElement(tag); if (text) e.textContent = text; if (cls) e.className = cls; return e; }
+function isImg(f) { return f && /^image\//.test(f.type); }
 
-if (!UPLOAD_URL) {
-  $('fname').textContent = '上傳功能準備中';
-  $('drop').style.pointerEvents = 'none';
-  showErr('上傳功能即將開放。目前請先依「快速生成 Log 檔步驟」用 LINE 傳給歐大。');
+if (!UPLOAD_URL) $('soon').hidden = false;
+
+// ── 有多少資料就送多少：任何一樣有東西，按鈕就能按 ──
+function refresh() {
+  var parts = [];
+  if (file) parts.push('Log 1 個');
+  if (shots.length) parts.push('截圖 ' + shots.length + ' 張');
+  if ($('desc').value.trim()) parts.push('文字描述');
+  $('go').disabled = !parts.length;
+  $('sum').textContent = parts.length ? '會送出：' + parts.join('、') : '放一樣以上就能送出';
 }
+$('desc').oninput = refresh;
 
-function pick(f) {
-  if (!f || !UPLOAD_URL) return;
+// ── 1. Log 檔 ──
+function pickLog(f) {
+  if (!f) return;
+  if (isImg(f)) { addShots([f]); return; }
   if (f.size > 20 * 1024 * 1024) { showErr('檔案超過 20 MB，請改傳較新的 Log。'); return; }
   file = f; $('err').style.display = 'none';
   $('fname').textContent = '📦 ' + f.name + '（' + (f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : (f.size / 1024).toFixed(1) + ' KB') + '）';
-  $('drop').classList.add('has'); $('go').disabled = false;
+  $('drop').classList.add('has'); refresh();
 }
-$('file').onchange = function (e) { pick(e.target.files[0]); };
-var d = $('drop');
-d.ondragover = function (e) { e.preventDefault(); d.classList.add('over'); };
-d.ondragleave = function () { d.classList.remove('over'); };
-d.ondrop = function (e) { e.preventDefault(); d.classList.remove('over'); pick(e.dataTransfer.files[0]); };
+$('file').onchange = function (e) { pickLog(e.target.files[0]); };
+function dropTarget(zone, onFiles) {
+  zone.ondragover = function (e) { e.preventDefault(); zone.classList.add('over'); };
+  zone.ondragleave = function () { zone.classList.remove('over'); };
+  zone.ondrop = function (e) { e.preventDefault(); zone.classList.remove('over'); onFiles([].slice.call(e.dataTransfer.files)); };
+}
+dropTarget($('drop'), function (fs) {
+  var imgs = fs.filter(isImg), other = fs.filter(function (f) { return !isImg(f); });
+  if (imgs.length) addShots(imgs);
+  if (other.length) pickLog(other[0]);
+});
 
+// ── 2. 截圖：貼上、選檔、拖曳；縮到 1920 以內 ──
+function loadImage(blob) {
+  return new Promise(function (ok, fail) {
+    var url = URL.createObjectURL(blob), im = new Image();
+    im.onload = function () { URL.revokeObjectURL(url); ok(im); };
+    im.onerror = function () { URL.revokeObjectURL(url); fail(new Error('讀不到這張圖')); };
+    im.src = url;
+  });
+}
+async function addShots(list) {
+  $('err').style.display = 'none';
+  for (var i = 0; i < list.length; i++) {
+    if (shots.length >= MAX_SHOTS) { showErr('截圖最多 ' + MAX_SHOTS + ' 張。'); break; }
+    try {
+      var im = await loadImage(list[i]);
+      var k = Math.min(1, MAX_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
+      var base = document.createElement('canvas');
+      base.width = Math.round(im.naturalWidth * k); base.height = Math.round(im.naturalHeight * k);
+      base.getContext('2d').drawImage(im, 0, 0, base.width, base.height);
+      shots.push({ base: base, strokes: [], name: list[i].name || ('截圖' + (shots.length + 1) + '.png') });
+    } catch (e) { showErr(e.message); }
+  }
+  drawShots(); refresh();
+}
+function compose(s) {
+  var c = document.createElement('canvas'); c.width = s.base.width; c.height = s.base.height;
+  var g = c.getContext('2d'); g.drawImage(s.base, 0, 0); paint(g, s, c.width); return c;
+}
+function paint(g, s, w) {
+  g.strokeStyle = '#e8101a'; g.lineWidth = Math.max(4, w / 220); g.lineCap = g.lineJoin = 'round';
+  s.strokes.forEach(function (pts) {
+    g.beginPath(); pts.forEach(function (p, i) { i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); });
+    if (pts.length === 1) g.lineTo(pts[0][0] + .1, pts[0][1]);
+    g.stroke();
+  });
+}
+function drawShots() {
+  var box = $('shots'); box.innerHTML = '';
+  shots.forEach(function (s, i) {
+    var card = el('div', '', 'shot'), img = el('img');
+    img.src = compose(s).toDataURL('image/jpeg', .7); img.alt = '截圖 ' + (i + 1);
+    img.onclick = function () { openEditor(i); };
+    card.appendChild(img);
+    if (s.strokes.length) card.appendChild(el('span', '✓ 已畫圈', 'tag'));
+    var bar = el('div', '', 'bar'), a = el('button', '✏️ 畫圈'), b = el('button', '✕ 移除');
+    a.type = b.type = 'button';
+    a.onclick = function () { openEditor(i); };
+    b.onclick = function () { if (editing === i) closeEditor(); shots.splice(i, 1); drawShots(); refresh(); };
+    bar.appendChild(a); bar.appendChild(b); card.appendChild(bar); box.appendChild(card);
+  });
+}
+$('pickImg').onclick = function () { $('img').click(); };
+$('img').onchange = function (e) { addShots([].slice.call(e.target.files)); e.target.value = ''; };
+$('paste').onclick = function () { $('paste').focus(); };
+dropTarget($('paste'), function (fs) { var imgs = fs.filter(isImg); if (imgs.length) addShots(imgs); else if (fs.length) pickLog(fs[0]); });
+document.addEventListener('paste', function (e) {
+  var items = (e.clipboardData && e.clipboardData.items) || [], imgs = [];
+  for (var i = 0; i < items.length; i++) if (items[i].kind === 'file' && /^image\//.test(items[i].type)) imgs.push(items[i].getAsFile());
+  if (!imgs.length) {
+    if (document.activeElement === $('paste')) showErr('剪貼簿裡沒有圖片。請先截圖（PrtSc 或 Win + Shift + S），再回來按 Ctrl + V。');
+    return;
+  }
+  e.preventDefault(); addShots(imgs);
+});
+
+// ── 畫圈 ──
+var cv = $('canvas'), cg = cv.getContext('2d'), drawing = null;
+function redraw() { var s = shots[editing]; cg.drawImage(s.base, 0, 0); paint(cg, s, cv.width); }
+function openEditor(i) {
+  editing = i; var s = shots[i];
+  cv.width = s.base.width; cv.height = s.base.height; redraw();
+  $('editor').style.display = 'block'; $('editor').scrollIntoView({ block: 'nearest' });
+}
+function closeEditor() { editing = null; $('editor').style.display = 'none'; drawShots(); }
+function pos(e) { var r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; }
+cv.onpointerdown = function (e) { if (editing === null) return; cv.setPointerCapture(e.pointerId); drawing = [pos(e)]; shots[editing].strokes.push(drawing); redraw(); };
+cv.onpointermove = function (e) { if (drawing) { drawing.push(pos(e)); redraw(); } };
+cv.onpointerup = cv.onpointercancel = function () { drawing = null; };
+$('edUndo').onclick = function () { shots[editing].strokes.pop(); redraw(); };
+$('edClear').onclick = function () { shots[editing].strokes = []; redraw(); };
+$('edDone').onclick = closeEditor;
+
+// ── 送出 ──
 function readBase64(f) {
   return new Promise(function (ok, fail) {
     var r = new FileReader();
@@ -114,23 +276,27 @@ function readBase64(f) {
 }
 
 $('go').onclick = async function () {
+  if (!UPLOAD_URL) { showErr('上傳功能即將開放。目前請先依「快速生成 Log 檔步驟」用 LINE 傳給歐大。'); return; }
+  if (editing !== null) closeEditor();
   $('go').disabled = true; $('go').style.display = 'none'; $('err').style.display = 'none';
   $('wait').style.display = 'block'; $('waitText').textContent = '上傳中…';
-  var t = setTimeout(function () { $('waitText').textContent = '已收到，正在檢查您的 Log，約需 30 秒，請不要關閉頁面…'; }, 4000);
+  var t = setTimeout(function () { $('waitText').textContent = '已收到，正在檢查您的資料，約需 30 秒，請不要關閉頁面…'; }, 4000);
   try {
-    var b64 = await readBase64(file);
+    var images = shots.map(function (s, i) {
+      return { name: '截圖' + (i + 1) + '.jpg', type: 'image/jpeg', data: compose(s).toDataURL('image/jpeg', .88).split(',')[1] };
+    });
     // 不設定 Content-Type（瀏覽器會用 text/plain），Google 小程式才能正常接收
     var r = await fetch(UPLOAD_URL, { method: 'POST', body: JSON.stringify({
-      file: b64, name: file.name, source: 'web',
-      desc: $('desc').value, ver: $('ver').value, contact: $('contact').value, env: navigator.userAgent }) });
+      file: file ? await readBase64(file) : '', name: file ? file.name : '', images: images, source: 'web',
+      desc: $('desc').value, ver: '', contact: $('contact').value, env: navigator.userAgent }) });
     var j = await r.json();
     if (!j.ok) throw new Error(j.error || '上傳失敗');
-    $('cid').textContent = j.id;
+    $('cid').textContent = $('cid2').textContent = j.id;
     show(j.customer || { kind: 'engineer' });
     $('form').style.display = 'none'; $('done').style.display = 'block';
   } catch (e) {
     showErr('上傳失敗：' + e.message + '。請稍後再試，或改用 LINE 傳給歐大。');
-    $('go').disabled = false; $('go').style.display = 'flex';
+    $('go').style.display = 'flex'; refresh();
   } finally { clearTimeout(t); $('wait').style.display = 'none'; }
 };
 
@@ -141,15 +307,15 @@ function show(c) {
     box.appendChild(el('h3', c.title));
     String(c.message || '').split('\n').forEach(function (s) { if (s.trim()) box.appendChild(el('p', s)); });
     if (c.link) { var a = el('a', c.linkText || '詳細說明', 'btn'); a.href = c.link; a.target = '_top'; box.appendChild(a); }
-    box.appendChild(el('p', '照著做之後如果還是沒解決，請告訴客服您的案件編號，工程師會立刻接手處理。', 'note'));
+    box.appendChild(el('p', '照著做之後如果還是沒解決，用 LINE 告訴歐大案件編號，工程師會立刻接手處理。', 'note'));
   } else {
     box.appendChild(el('h3', '工程師會立刻解析並回覆您'));
-    box.appendChild(el('p', '您的狀況需要進一步判讀。我們已收到 Log，工程師會立刻解析，找出原因後回覆您。'));
+    box.appendChild(el('p', '您的狀況需要進一步判讀。我們已收到資料，工程師會立刻解析，找出原因後回覆您。'));
     var ct = $('contact').value.trim();
-    box.appendChild(el('p', ct ? '回覆會傳到您留的聯絡方式：' + ct : '您沒有留聯絡方式，請把案件編號傳給客服，方便我們對應。', 'note'));
-    var l = el('a', 'LINE@ 歐大的官方客服', 'btn line'); l.href = LINE_URL; l.target = '_blank'; l.rel = 'noopener'; box.appendChild(l);
+    if (ct) box.appendChild(el('p', '結果也會寄到您的 E-mail：' + ct, 'note'));
   }
 }
+$('lineBtn').href = LINE_URL;
 $('copy').onclick = function () { if (navigator.clipboard) navigator.clipboard.writeText($('cid').textContent); $('copy').textContent = '已複製 ✓'; };
 $('again').onclick = function () { location.reload(); };
 </script>
