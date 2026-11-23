@@ -17,10 +17,11 @@ html,body{margin:0;background:transparent}
 body{color:var(--ink);font:17px/1.8 "PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;padding:4px 8px 12px 0}
 .panel{background:#fff;border:var(--edge);border-radius:16px;box-shadow:var(--pop-big);padding:24px}
 .free{margin:0 0 6px;font-weight:700;color:var(--indigo-deep)}
-.step{display:flex;align-items:center;gap:10px;margin:22px 0 8px;font-weight:900;font-size:17px}
+.step{display:flex;align-items:flex-start;gap:10px;margin:24px 0 8px;font-weight:900;font-size:17px;line-height:1.4}
 .step:first-of-type{margin-top:6px}
+.step .t{min-width:0;padding-top:3px;white-space:nowrap}
 .step b{display:inline-grid;place-items:center;width:30px;height:30px;border:var(--edge);border-radius:50%;background:var(--coin);font-size:15px;flex:none}
-.step em{font-style:normal;font-weight:400;font-size:14px;color:var(--muted)}
+.step em{display:block;white-space:normal;font-style:normal;font-weight:400;font-size:14px;line-height:1.5;color:var(--muted)}
 .zone{display:block;width:100%;border:3px dashed var(--indigo);border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;background:var(--sky);font:inherit;color:inherit;transition:transform .12s}
 .zone:hover,.zone.over,.zone:focus{outline:none;transform:translate(-2px,-2px);background:#e4f8fd}
 .zone:focus{box-shadow:3px 3px 0 var(--indigo)}
@@ -83,11 +84,11 @@ h2{font-family:var(--display);font-weight:900;font-size:26px;margin:12px auto 6p
   <div class="soon" id="soon" hidden>上傳功能即將開放。目前請先依「快速生成 Log 檔步驟」用 LINE 傳給歐大。</div>
   <p class="free">下面三樣都是選填，有多少就傳多少。</p>
 
-  <div class="step"><b>1</b>Log 檔 <em>（一鍵報錯產生的 .zip）</em></div>
-  <label class="zone" id="drop" for="file"><span class="big" id="fname">點這裡選擇 Log 檔，或把檔案拖進來</span><small>支援 .zip、.log、.txt，最大 20 MB</small></label>
+  <div class="step"><b>1</b><span class="t">Log 檔<em>（一鍵報錯產生的 .zip）</em></span></div>
+  <label class="zone" id="drop" for="file"><span class="big" id="fname">點這裡選擇 Log 檔，或把檔案拖進來</span><small>支援 .zip、.log、.txt，最大 100 MB</small></label>
   <input type="file" id="file" accept=".zip,.log,.txt,.out" hidden>
 
-  <div class="step"><b>2</b>截圖 <em>（最多 6 張）</em></div>
+  <div class="step"><b>2</b><span class="t">截圖<em>（最多 6 張）</em></span></div>
   <p class="tip">📸 請截<strong>整個螢幕</strong>（不要只截一小塊），再按每張圖下面的<strong>「畫圈」</strong>，把有問題的地方圈起來。</p>
   <div class="zone" id="paste" tabindex="0" role="button" aria-label="貼上截圖">
     <span class="big">先點這個框，再按 <kbd>Ctrl</kbd> + <kbd>V</kbd> 貼上截圖</span>
@@ -106,10 +107,10 @@ h2{font-family:var(--display);font-weight:900;font-size:26px;margin:12px auto 6p
     </div>
   </div>
 
-  <div class="step"><b>3</b>簡單描述 <em>（發生了什麼事？）</em></div>
+  <div class="step"><b>3</b><span class="t">簡單描述<em>（發生了什麼事？）</em></span></div>
   <textarea id="desc" rows="3" placeholder="例如：09:05 按下雙賣建倉後沒有下單，訊息區一直顯示連線中"></textarea>
 
-  <div class="step"><b>@</b>你的 E-mail <em>（工程師查好會寄到這裡）</em></div>
+  <div class="step"><b>@</b><span class="t">你的 E-mail<em>（工程師查好會寄到這裡）</em></span></div>
   <input type="email" id="contact" placeholder="例如 name@gmail.com" autocomplete="email" inputmode="email">
 
   <button class="go" id="go" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg><span>送出給工程師</span></button>
@@ -166,7 +167,7 @@ $('desc').oninput = refresh;
 function pickLog(f) {
   if (!f) return;
   if (isImg(f)) { addShots([f]); return; }
-  if (f.size > 20 * 1024 * 1024) { showErr('檔案超過 20 MB，請改傳較新的 Log。'); return; }
+  if (f.size > 100 * 1024 * 1024) { showErr('檔案超過 100 MB，請改傳較新的 Log。'); return; }
   file = f; $('err').style.display = 'none';
   $('fname').textContent = '📦 ' + f.name + '（' + (f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : (f.size / 1024).toFixed(1) + ' KB') + '）';
   $('drop').classList.add('has'); refresh();

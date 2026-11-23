@@ -11,7 +11,7 @@ Joption 官網（https://www.joption.com.tw）。`content/*.md` 由 `build.py` �
 - 「登入失敗」FAQ 已改成「通用設定 → 更新帳密」，連到更換金鑰流程（不再叫人刪 pw.txt）。
 - 群益安裝說明第 8 節有兩個按鈕：下載排程小幫手、排程小幫手完整說明（連到 FAQ）。
 - **FAQ 新增「一鍵上傳 Log 報錯」**（`content/faq/上傳log報錯.md`，order 365，11/23 已公開（拿掉 hidden），UPLOAD_URL 仍空白時顯示「即將開放」）：上傳工具在 `content/tools/log上傳.html`，檔案送到歐大 Google 帳號的 Apps Script（程式碼不在這個 repo）。工具裡 `UPLOAD_URL` 還是空白，空白時頁面顯示「上傳功能準備中」。Apps Script 部署好後把 `.../exec` 網址填進 `UPLOAD_URL`，
-  - 11/23 改版：拿掉版本欄（從 Log 判讀）、聯絡改填 E-mail、可貼截圖（Ctrl+V／選檔／拖曳，最多 6 張，縮到 1920）並在頁上畫紅圈；Log、截圖、描述都選填，有一樣就能送。送出多了 `images:[{name,type,data}]`，沒 Log 時 `file` 是空字串——**Apps Script 要能接這兩種情況**。完成畫面教使用者截圖＋報編號給歐大、加 LINE。
+  - 11/23 改版：拿掉版本欄（從 Log 判讀）、聯絡改填 E-mail、可貼截圖（Ctrl+V／選檔／拖曳，最多 6 張，縮到 1920）並在頁上畫紅圈；Log、截圖、描述都選填，有一樣就能送；Log 上限 100 MB（網頁端）。步驟標題的說明文字另起一行，手機不會擠成三行。送出多了 `images:[{name,type,data}]`，沒 Log 時 `file` 是空字串——**Apps Script 要能接這兩種情況**。完成畫面教使用者截圖＋報編號給歐大、加 LINE。
 
 ## 重要做法
 - 下載檔放 `content/files/`（原樣複製，網址 `/files/檔名`）；`content/tools/` 只能放 html。
