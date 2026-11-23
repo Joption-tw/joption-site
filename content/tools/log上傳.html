@@ -266,6 +266,54 @@ $('edUndo').onclick = function () { shots[editing].strokes.pop(); redraw(); };
 $('edClear').onclick = function () { shots[editing].strokes = []; redraw(); };
 $('edDone').onclick = closeEditor;
 
+// ── Log 瘦身：在瀏覽器先解開壓縮檔，每個 Log 只留最新的部分，避免檔案太大送不出去 ──
+var LOG_RE = /\.(log|txt|out|err)(\.\d+)?$/i;
+var PER_FILE = 1536 * 1024;      // 每個 Log 檔最多留最後 1.5 MB
+var TOTAL = 4 * 1024 * 1024;     // 全部加起來最多 4 MB
+function mb(n) { return (n / 1048576).toFixed(1) + ' MB'; }
+function loadScript(src) {
+  return new Promise(function (ok, fail) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = function () { fail(new Error('載入解壓縮工具失敗')); }; document.head.appendChild(s); });
+}
+function decodeBytes(u8) {
+  if (u8[0] === 0xff && u8[1] === 0xfe) return new TextDecoder('utf-16le').decode(u8);
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); } catch (e) {}
+  try { var b = new TextDecoder('big5').decode(u8); if (b.indexOf('\ufffd') < 0 || b.split('\ufffd').length < 20) return b; } catch (e) {}
+  return new TextDecoder('utf-8').decode(u8);
+}
+function tail(u8) {
+  if (u8.length <= PER_FILE) return { text: decodeBytes(u8), cut: false };
+  var t = u8.subarray(u8.length - PER_FILE), nl = t.indexOf(10);
+  return { text: decodeBytes(nl >= 0 && nl < 4096 ? t.subarray(nl + 1) : t), cut: true };
+}
+async function slimLog(f) {
+  var head = new Uint8Array(await f.slice(0, 4).arrayBuffer());
+  var isZip = head[0] === 0x50 && head[1] === 0x4b;
+  var parts = [], used = 0, skipped = [], note;
+  if (isZip) {
+    if (!window.JSZip) await loadScript('/files/jszip.min.js');
+    var zip = await JSZip.loadAsync(f);
+    var list = [];
+    zip.forEach(function (path, e) { if (!e.dir && LOG_RE.test(path)) list.push(e); });
+    if (!list.length) throw new Error('壓縮檔裡找不到 .log 或 .txt 檔');
+    list.sort(function (a, b) { return (b.date - a.date) || (a.name < b.name ? 1 : -1); });   // 最新的檔案優先
+    for (var i = 0; i < list.length; i++) {
+      if (used >= TOTAL) { skipped.push(list[i].name); continue; }
+      var r = tail(await list[i].async('uint8array'));
+      var txt = r.text.length > TOTAL - used ? r.text.slice(r.text.length - (TOTAL - used)) : r.text;
+      parts.push('===== FILE: ' + list[i].name + (r.cut || txt.length < r.text.length ? '（只保留最後一段）' : '') + ' =====\n' + txt);
+      used += txt.length;
+    }
+    note = '【瀏覽器已先整理：原始壓縮檔 ' + mb(f.size) + '，共 ' + list.length + ' 個 Log 檔，每個只保留最新的部分' +
+      (skipped.length ? '；因為太多而略過較舊的 ' + skipped.length + ' 個：' + skipped.slice(0, 30).join('、') : '') + '】';
+  } else {
+    var r2 = tail(new Uint8Array(await f.arrayBuffer()));
+    parts.push('===== FILE: ' + f.name + (r2.cut ? '（只保留最後一段）' : '') + ' =====\n' + r2.text);
+    note = '【原始檔案 ' + mb(f.size) + '】';
+  }
+  var blob = new Blob([note + '\n\n' + parts.join('\n\n')], { type: 'text/plain' });
+  return { data: await readBase64(blob), name: f.name.replace(/\.zip$/i, '') + '.txt' };
+}
+
 // ── 送出 ──
 function readBase64(f) {
   return new Promise(function (ok, fail) {
@@ -287,8 +335,10 @@ $('go').onclick = async function () {
       return { name: '截圖' + (i + 1) + '.jpg', type: 'image/jpeg', data: compose(s).toDataURL('image/jpeg', .88).split(',')[1] };
     });
     // 不設定 Content-Type（瀏覽器會用 text/plain），Google 小程式才能正常接收
+    var log = null;
+    if (file) { $('waitText').textContent = '正在整理 Log 檔，請稍候…'; log = await slimLog(file); $('waitText').textContent = '上傳中…'; clearTimeout(t); t = setTimeout(function () { $('waitText').textContent = '已收到，正在檢查您的資料，約需 30 秒，請不要關閉頁面…'; }, 4000); }
     var r = await fetch(UPLOAD_URL, { method: 'POST', body: JSON.stringify({
-      file: file ? await readBase64(file) : '', name: file ? file.name : '', images: images, source: 'web',
+      file: log ? log.data : '', name: log ? log.name : '', images: images, source: 'web',
       desc: $('desc').value, ver: '', contact: $('contact').value, env: navigator.userAgent }) });
     var j = await r.json();
     if (!j.ok) throw new Error(j.error || '上傳失敗');
