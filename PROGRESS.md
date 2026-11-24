@@ -25,6 +25,7 @@ Joption 官網（https://www.joption.com.tw）。`content/*.md` 由 `build.py` �
 - 部署：`.github/workflows/deploy.yml` 已拆成 build／deploy 兩個工作、Pages 元件用 v5（11/24 同一工作裡 deploy-pages 連續找不到剛上傳的 github-pages 產物，拆開才好）。不要改回同一個工作；重跑請推新 commit，不要 re-run（會出現兩份產物）。
 - 轉址用 front matter `redirect: /路徑/`。
 - 不想在頁面下方列出「本單元內容」子頁卡片：front matter 加 `children: false`（側邊選單照樣有子頁）。11/24 用在「下載及安裝說明」，該頁只寫「請聯繫歐大官方客服」＋加 LINE@ 按鈕。
+- **歐大專用頁**：front matter `owner: true`（通常配 `hidden: true`）→ 一般人只看到「請聯繫歐大官方客服」＋LINE@ 按鈕和小小的「歐大登入」；輸入歐大 E-mail（網站只存雜湊）後存在瀏覽器，才顯示內容。11/24 群益／凱基／元富下載點三頁改成這樣，入口在「下載及安裝說明」頁的「歐大專用」按鈕。注意這是藏起來不是加密，知道網址的人看原始碼還是看得到；hidden 頁另加 noindex。
 - 部署確認：查 GitHub Actions 最新 run 的 head_sha 完成，再 curl 正式網址看新文字。
 
 ## 試過失敗的

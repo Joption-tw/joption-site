@@ -62,6 +62,7 @@ def collect_pages():
                 "redirect": meta.get("redirect"),
                 "menu": meta.get("menu"),
                 "children": meta.get("children") != "false",
+                "owner": meta.get("owner") == "true",
                 "body": body,
             })
     return pages
@@ -548,7 +549,7 @@ def build(base=None, preview=False):
         else:
             main = (f'{crumbs(p, nodes)}<article class="prose"><h1>{esc(p["title"])}</h1>{SHARE}{content}</article>'
                     f'{extra}{pager}')
-            hero, body_class = "", "doc"
+            hero, body_class = "", "doc owner-only" if p["owner"] else "doc"
             full_title = f'{p["title"]} | {site["name"]}'
         html_pages[p["url"]] = (template
                                 .replace("{{title}}", esc(full_title))
@@ -562,6 +563,7 @@ def build(base=None, preview=False):
                                 .replace("{{nav}}", render_nav(tree, p["url"], preview=preview))
                                 .replace("{{hero}}", hero)
                                 .replace("{{body_class}}", body_class)
+                                .replace("{{robots}}", '<meta name="robots" content="noindex">' if p["hidden"] else "")
                                 .replace("{{main}}", main)
                                 .replace("{{footer_links}}", foot))
         if not p["hidden"]:
@@ -600,7 +602,7 @@ def build(base=None, preview=False):
     json.dump(search, open(os.path.join(tmp, "search.json"), "w", encoding="utf-8"), ensure_ascii=False)
     notfound = template.replace("{{title}}", "找不到頁面").replace("{{description}}", "").replace("{{canonical}}", esc(site_url + "/")) \
         .replace("{{site_name}}", esc(site["name"])).replace("{{logo}}", esc(site["logo"])) \
-        .replace("{{ga_id}}", "").replace("{{counter}}", "").replace("{{nav}}", render_nav(tree, "")).replace("{{hero}}", "").replace("{{body_class}}", "doc") \
+        .replace("{{ga_id}}", "").replace("{{counter}}", "").replace("{{nav}}", render_nav(tree, "")).replace("{{hero}}", "").replace("{{body_class}}", "doc").replace("{{robots}}", "") \
         .replace("{{main}}", '<article class="prose"><h1>找不到這個頁面</h1><p>網址可能已經更動，請從左側選單或搜尋找找看，或<a href="/">回首頁</a>。</p></article>') \
         .replace("{{footer_links}}", foot)
     open(os.path.join(tmp, "404.html"), "w", encoding="utf-8", newline="\n").write(with_base(notfound, base))

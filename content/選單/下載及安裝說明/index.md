@@ -7,3 +7,13 @@ children: false
 請聯繫歐大官方客服
 
 [加歐大 LINE@ 官方客服](https://line.me/ti/p/MnAWXchQ7F){.btn}
+
+<div class="owner-links" hidden markdown="1">
+
+#### 歐大專用
+
+[群益下載點及安裝說明](/選單/下載及安裝說明/群益下載點及安裝說明/){.btn} [凱基下載點及安裝說明](/選單/下載及安裝說明/凱基下載點及安裝說明/){.btn} [元富下載點及安裝說明](/選單/下載及安裝說明/元富下載點及安裝說明/){.btn}
+
+</div>
+
+<div class="owner-login"></div>

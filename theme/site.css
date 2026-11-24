@@ -183,13 +183,13 @@ main { min-width: 0; width: 100%; max-width: 1280px; margin: 0 auto; padding: 32
 .trio .card:nth-child(3) { background: var(--indigo); color: #fff; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .btn-row p { margin: 0; }
-a.btn {
+a.btn, button.btn {
   display: inline-block; padding: 9px 18px; border: var(--edge); border-radius: 12px;
   background: var(--coin); color: var(--ink); font-weight: 900; font-size: 16px; line-height: 1.5; text-decoration: none;
   box-shadow: var(--pop); transition: transform .1s, box-shadow .1s;
 }
-a.btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
-a.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+a.btn:hover, button.btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
+a.btn:active, button.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
 
 .video { position: relative; aspect-ratio: 16 / 9; margin: 12px 0 20px; }
 .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 2px solid var(--ink); border-radius: 10px; }
@@ -414,3 +414,13 @@ iframe.embed { height: 1157px; }
   .visit b { font-size: 24px; }
   .visit span { font-size: 13px; }
 }
+
+/* 歐大專用頁：確認身分前先不顯示內容 */
+.owner-only:not(.owner-ready) main { visibility: hidden; }
+.owner-login { margin-top: 40px; font-size: 14px; color: var(--muted, #5c5870); }
+.owner-box summary { cursor: pointer; width: max-content; opacity: .6; }
+.owner-box form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.owner-box input { padding: 8px 12px; border: 2px solid currentColor; border-radius: 10px; font: inherit; min-width: 0; width: 240px; max-width: 100%; }
+.owner-msg { color: #d9321f; font-weight: 700; }
+.owner-out { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; opacity: .6; }
+.owner-box button.btn { font: inherit; font-weight: 700; cursor: pointer; padding: 6px 16px; }

@@ -179,3 +179,48 @@
   // 開著網站時每 2 分鐘報到一次，在線人數才準
   setInterval(function () { if (document.visibilityState === 'visible') ping(false); }, 120000);
 })();
+
+(function () {
+  // 歐大專用頁：E-mail 對了才顯示（存的是 E-mail 的雜湊，不是 E-mail 本身）
+  // 注意：網站是公開的靜態檔，這只是把頁面藏起來，不是加密
+  var OWNER = '88ac55c6c6af6463c0ce815db2c05da18c97449ffc26af6d65aae9faaf3159ee';
+  var KEY = 'jo-owner';
+  var LINE = 'https://line.me/ti/p/MnAWXchQ7F';
+  function saved() { try { return localStorage.getItem(KEY) === OWNER; } catch (e) { return false; } }
+  function sha(text) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (b) {
+      return Array.prototype.map.call(new Uint8Array(b), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function loginBox(box) {
+    box.innerHTML = '<details class="owner-box"><summary>歐大登入</summary>' +
+      '<form><input type="email" placeholder="E-mail" autocomplete="email" required> <button class="btn" type="submit">登入</button>' +
+      '<span class="owner-msg" role="alert"></span></form></details>';
+    box.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = box.querySelector('input').value.trim().toLowerCase();
+      sha(v).then(function (h) {
+        if (h !== OWNER) { box.querySelector('.owner-msg').textContent = '這個 E-mail 沒有權限'; return; }
+        try { localStorage.setItem(KEY, h); } catch (err) {}
+        location.reload();
+      });
+    });
+  }
+  function logoutBox(box) {
+    box.innerHTML = '<button class="owner-out" type="button">歐大登出</button>';
+    box.firstChild.addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); });
+  }
+  var ok = saved();
+  if (document.body.classList.contains('owner-only') && !ok) {
+    var art = document.querySelector('main .prose');
+    var h1 = art && art.querySelector('h1');
+    if (art) {
+      art.innerHTML = '';
+      if (h1) art.appendChild(h1);
+      art.insertAdjacentHTML('beforeend', '<p>請聯繫歐大官方客服</p><p><a class="btn" href="' + LINE + '" rel="noopener">加歐大 LINE@ 官方客服</a></p><div class="owner-login"></div>');
+    }
+  }
+  if (ok) document.querySelectorAll('.owner-links').forEach(function (el) { el.hidden = false; });
+  document.querySelectorAll('.owner-login').forEach(function (box) { (ok ? logoutBox : loginBox)(box); });
+  document.body.classList.add('owner-ready');
+})();
