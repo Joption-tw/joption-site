@@ -10,11 +10,14 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  # 先建網站、上傳；部署另一個工作做（同一個工作裡緊接著部署，常常會找不到剛上傳的檔案）
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,4 +28,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
-      - uses: actions/deploy-pages@v5
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
