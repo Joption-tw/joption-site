@@ -15,6 +15,10 @@ Joption 官網（https://www.joption.com.tw）。`content/*.md` 由 `build.py` �
 
 - 11/24 價格名詞統一：圖片裡的「中間偏易價→更優價二檔」「中間偏難價→更優價一檔」已改（報價區及手動下單/12、13.png，下單價格選擇指南/01.jpg；12、13 也用在通用設定頁）。文字本來就是新名詞。修圖程式在 scratchpad（price/fix.py），用 mingliu 逐字重寫。
 
+- **凱基安裝說明**（`content/選單/凱基安裝說明.md`，隱藏頁，11/24）改成「凱基安裝包」新流程（11/24 已發布），格式照群益安裝說明；圖 01～17.png 在 `content/images/凱基安裝說明/`（舊的 01～17.jpg 只留在 git 歷史）。
+  下載按鈕連到雲端「凱基雙賣平衡下單機下載\凱基安裝包.exe」（id 16tMUt6Pfk5dRgPrVz8dOzoV5LtBcSWsR）。截圖來源與打馬賽克：D:\桌面\測試\凱基安裝教學截圖（安裝包原始碼在 D:\桌面\測試\packaging\kgi_setup）。
+  頁面內容不可提到其他公司（群益等），排程、換授權碼步驟直接寫在本頁、不連群益頁和更換金鑰 FAQ。「凱基下載點及安裝說明」第 1 張圖還連到舊的雲端檔（1PH1aThKqdz4oeq6Ioalu4CScp-IpiVAF），要不要改成安裝包待使用者決定。
+
 ## 重要做法
 - 下載檔放 `content/files/`（原樣複製，網址 `/files/檔名`）；`content/tools/` 只能放 html。
 - 排程小幫手改版時：換 `content/files/` 裡的安裝檔，並改兩個地方的連結版本號（群益安裝說明第 8 節、FAQ 排程小幫手頁）。
