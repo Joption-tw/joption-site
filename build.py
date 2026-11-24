@@ -61,6 +61,7 @@ def collect_pages():
                 "layout": meta.get("layout", "page"),
                 "redirect": meta.get("redirect"),
                 "menu": meta.get("menu"),
+                "children": meta.get("children") != "false",
                 "body": body,
             })
     return pages
@@ -516,7 +517,7 @@ def build(base=None, preview=False):
         extra = ""
         kids = sorted((q for q in pages if q["nav"][:-1] == p["nav"] and q["parts"] and not q["hidden"] and not q["redirect"]),
                       key=lambda q: (q["order"], q["title"]))
-        if kids and p["layout"] != "home":
+        if kids and p["layout"] != "home" and p["children"]:
             extra = '<section class="children"><h2>本單元內容</h2><div class="cards">' + "".join(
                 card(k["title"], k["url"], k["summary"]) for k in kids) + "</div></section>"
         pager = ""
