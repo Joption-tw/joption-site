@@ -26,7 +26,7 @@ Joption 官網（https://www.joption.com.tw）。`content/*.md` 由 `build.py` �
 - 轉址用 front matter `redirect: /路徑/`。
 - 側邊選單最下面的外部連結都是 `content/` 根目錄的轉址頁（只有 title／order／redirect）：歐大選擇權教室 900、富台指轉換器 910、歷史時間價值比對 920（sample/time-value）、示範帳號投資報表 930（Investment-Report demo）、同學會監控中心 940（/tools/monitor.html，11/24 起放進選單）。要加新的照這樣做一個 .md。
 - 不想在頁面下方列出「本單元內容」子頁卡片：front matter 加 `children: false`（側邊選單照樣有子頁）。11/24 用在「下載及安裝說明」，該頁只寫「請聯繫歐大官方客服」＋加 LINE@ 按鈕。
-- **歐大專用頁**：front matter `owner: true`（通常配 `hidden: true`）→ 一般人只看到「請聯繫歐大官方客服」＋LINE@ 按鈕和小小的「歐大登入」；輸入歐大 E-mail（網站只存雜湊）後存在瀏覽器，才顯示內容。11/24 群益／凱基下載點和新增的台新、富邦期貨、統一期貨（後三頁目前只寫「準備中」，等歐大給下載點和圖）改成這樣；元富頁改成轉址到台新、元富圖已刪，入口在「下載及安裝說明」頁的「歐大專用」按鈕。注意這是藏起來不是加密，知道網址的人看原始碼還是看得到；hidden 頁另加 noindex。
+- **歐大專用頁**：front matter `owner: true`（通常配 `hidden: true`）→ 一般人只看到「請聯繫歐大官方客服」＋LINE@ 按鈕和小小的「歐大登入」；輸入歐大 E-mail（網站只存雜湊）後存在瀏覽器，才顯示內容。11/24 群益／凱基下載點和新增的台新、富邦期貨、統一期貨（後三頁目前只寫「準備中」，等歐大給下載點和圖）改成這樣；元富頁改成轉址到台新、元富圖已刪，入口在「下載及安裝說明」頁的「歐大專用」按鈕。11/25 加「每週換週自動化說明」（同資料夾，owner 頁，order 320），內容是 9 張簡報圖 `content/images/每週換週自動化說明/01～09.jpg`，原稿是 Artifact 簡報 https://claude.ai/artifact/H9mx6514gNiyUzsze9QsZC 。注意這是藏起來不是加密，知道網址的人看原始碼還是看得到；hidden 頁另加 noindex。
 - 部署確認：查 GitHub Actions 最新 run 的 head_sha 完成，再 curl 正式網址看新文字。
 
 ## 試過失敗的
