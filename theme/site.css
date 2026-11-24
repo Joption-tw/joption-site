@@ -424,3 +424,4 @@ iframe.embed { height: 1157px; }
 .owner-msg { color: #d9321f; font-weight: 700; }
 .owner-out { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; opacity: .6; }
 .owner-box button.btn { font: inherit; font-weight: 700; cursor: pointer; padding: 6px 16px; }
+.owner-links p { display: flex; flex-wrap: wrap; gap: 12px; }
