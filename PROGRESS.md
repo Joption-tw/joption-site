@@ -18,6 +18,7 @@ Joption 官網（https://www.joption.com.tw）。`content/*.md` 由 `build.py` �
 ## 重要做法
 - 下載檔放 `content/files/`（原樣複製，網址 `/files/檔名`）；`content/tools/` 只能放 html。
 - 排程小幫手改版時：換 `content/files/` 裡的安裝檔，並改兩個地方的連結版本號（群益安裝說明第 8 節、FAQ 排程小幫手頁）。
+- 部署：`.github/workflows/deploy.yml` 已拆成 build／deploy 兩個工作、Pages 元件用 v5（11/24 同一工作裡 deploy-pages 連續找不到剛上傳的 github-pages 產物，拆開才好）。不要改回同一個工作；重跑請推新 commit，不要 re-run（會出現兩份產物）。
 - 轉址用 front matter `redirect: /路徑/`。
 - 部署確認：查 GitHub Actions 最新 run 的 head_sha 完成，再 curl 正式網址看新文字。
 
