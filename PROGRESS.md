@@ -13,6 +13,7 @@ Joption 官網（https://www.joption.com.tw）。`content/*.md` 由 `build.py` �
 - **FAQ 新增「一鍵上傳 Log 報錯」**（`content/faq/上傳log報錯.md`，order 365，11/23 已公開（拿掉 hidden），UPLOAD_URL 仍空白時顯示「即將開放」）：上傳工具在 `content/tools/log上傳.html`，檔案送到歐大 Google 帳號的 Apps Script（程式碼不在這個 repo）。工具裡 `UPLOAD_URL` 還是空白，空白時頁面顯示「上傳功能準備中」。Apps Script 部署好後把 `.../exec` 網址填進 `UPLOAD_URL`，
   - 11/23 改版：拿掉版本欄（從 Log 判讀）、聯絡改填 E-mail、可貼截圖（Ctrl+V／選檔／拖曳，最多 6 張，縮到 1920）並在頁上畫紅圈；Log、截圖、描述都選填，有一樣就能送；Log 上限 100 MB（網頁端）。11/24 加「Log 瘦身」：送出前在瀏覽器用 JSZip（`content/files/jszip.min.js`，MIT）解開 .zip，每個 Log 只留最後 1.5 MB、全部最多 4 MB，轉成一個 .txt 才上傳，解決大檔送不出去；送到 Apps Script 的檔名變成 `原檔名.txt`。步驟標題的說明文字另起一行，手機不會擠成三行。送出多了 `images:[{name,type,data}]`，沒 Log 時 `file` 是空字串——**Apps Script 要能接這兩種情況**。完成畫面教使用者截圖＋報編號給歐大、加 LINE。
 
+- 11/25 價格選項加「中間價」＝（買進價＋賣出價）÷ 2，例子 95／95，排在立刻成交價下面：13.png 表格加一列、下單價格選擇指南/01.jpg 條列和表格都加，文字在報價區及手動下單、通用設定、下單價格選擇指南（第 4 項）。修圖程式在 scratchpad price/add_mid.py（標楷體＋Times 寫新列，其他列換底色）。
 - 11/24 價格名詞統一：圖片裡的「中間偏易價→更優價二檔」「中間偏難價→更優價一檔」已改（報價區及手動下單/12、13.png，下單價格選擇指南/01.jpg；12、13 也用在通用設定頁）。文字本來就是新名詞。修圖程式在 scratchpad（price/fix.py），用 mingliu 逐字重寫。
 
 - **凱基安裝說明**（`content/選單/凱基安裝說明.md`，隱藏頁，11/24）改成「凱基安裝包」新流程（11/24 已發布），格式照群益安裝說明；圖 01～17.png 在 `content/images/凱基安裝說明/`（舊的 01～17.jpg 只留在 git 歷史）。
